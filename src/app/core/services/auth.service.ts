@@ -33,7 +33,10 @@ export class AuthService {
     }
     const { error } = await this.supa.client.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true }
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin + '/dashboard'
+      }
     });
     if (error) return { error: error.message };
     return { error: null };
