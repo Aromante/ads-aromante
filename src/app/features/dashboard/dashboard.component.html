@@ -21,16 +21,16 @@
   <!-- KPIs -->
   <div class="kpi-row">
     <div class="kpi">
-      <div class="kpi-label">Anuncios activos</div>
-      <div class="kpi-value">{{ activeAds }}</div>
+      <div class="kpi-label">Anuncios evaluados</div>
+      <div class="kpi-value">{{ totalAds }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Inversi&oacute;n acumulada</div>
-      <div class="kpi-value">{{ fmtMoney(totalSpend) }}</div>
+      <div class="kpi-label">Cumplen piso</div>
+      <div class="kpi-value" style="color: #86efac;">{{ compliantCount }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Compras</div>
-      <div class="kpi-value">{{ totalPurchases | number }}</div>
+      <div class="kpi-label">No cumplen</div>
+      <div class="kpi-value" style="color: #fca5a5;">{{ nonCompliantCount }}</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">ROAS 7d promedio</div>
@@ -42,25 +42,25 @@
   <div class="card">
     <h2 class="card-title">
       <span class="badge badge-red">Apagar</span>
-      Gasto &gt; 3&times; CPA sin compras &mdash; {{ killList.length }} anuncios
+      Gasto sin compras &mdash; {{ killList.length }} anuncios
     </h2>
     <table class="data-table" *ngIf="killList.length > 0">
       <thead>
         <tr>
           <th>Anuncio</th>
           <th>Campa&ntilde;a</th>
-          <th class="num">Gasto acum.</th>
-          <th class="num">Compras</th>
-          <th class="num">Frecuencia 7d</th>
+          <th class="num">Gasto 7d</th>
+          <th class="num">Exceso</th>
+          <th class="num">Freq.</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let ad of killList">
           <td class="clickable" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</td>
           <td>{{ ad.campaign_name }}</td>
-          <td class="num">{{ fmtMoney(ad.spend_cum) }}</td>
-          <td class="num">{{ ad.purchases_cum }}</td>
-          <td class="num">{{ fmt(ad.frequency_7d, 1) }}</td>
+          <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
+          <td class="num" style="color: #fca5a5;">{{ fmtMoney(ad.spend_excess) }}</td>
+          <td class="num">{{ fmt(ad.frequency_day, 1) }}</td>
         </tr>
       </tbody>
     </table>
@@ -71,7 +71,7 @@
   <div class="card">
     <h2 class="card-title">
       <span class="badge badge-yellow">Reducir</span>
-      M&oacute;vil &lt; acumulada 7+ d&iacute;as o frecuencia &gt; 3.5 &mdash; {{ reduceList.length }} anuncios
+      No cumplen piso de ROAS &mdash; {{ reduceList.length }} anuncios
     </h2>
     <table class="data-table" *ngIf="reduceList.length > 0">
       <thead>
@@ -80,9 +80,7 @@
           <th>Campa&ntilde;a</th>
           <th class="num">ROAS 7d</th>
           <th class="num">ROAS acum.</th>
-          <th class="num">Diff</th>
-          <th class="num">D&iacute;as &lt; acum.</th>
-          <th class="num">Freq. 7d</th>
+          <th class="num">Freq.</th>
           <th class="num">Exceso gasto</th>
         </tr>
       </thead>
@@ -92,9 +90,7 @@
           <td>{{ ad.campaign_name }}</td>
           <td class="num">{{ fmt(ad.roas_7d) }}x</td>
           <td class="num">{{ fmt(ad.roas_cum) }}x</td>
-          <td class="num" [style.color]="ad.roas_diff < 0 ? '#fca5a5' : '#86efac'">{{ fmt(ad.roas_diff) }}x</td>
-          <td class="num">{{ ad.consecutive_below }}</td>
-          <td class="num" [style.color]="ad.frequency_7d > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.frequency_7d, 1) }}</td>
+          <td class="num" [style.color]="ad.frequency_day > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.frequency_day, 1) }}</td>
           <td class="num">{{ fmtMoney(ad.spend_excess) }}</td>
         </tr>
       </tbody>
@@ -106,7 +102,7 @@
   <div class="card">
     <h2 class="card-title">
       <span class="badge badge-green">Escalar</span>
-      ROAS &ge; {{ FLOOR_ROAS }}x sostenido, &ge;10 compras, freq. &lt; 3.0 &mdash; {{ scaleList.length }} anuncios
+      Cumplen piso &mdash; {{ scaleList.length }} anuncios
     </h2>
     <table class="data-table" *ngIf="scaleList.length > 0">
       <thead>
@@ -115,9 +111,8 @@
           <th>Campa&ntilde;a</th>
           <th class="num">ROAS 7d</th>
           <th class="num">ROAS acum.</th>
-          <th class="num">Compras</th>
-          <th class="num">Freq. 7d</th>
-          <th class="num">Gasto acum.</th>
+          <th class="num">Freq.</th>
+          <th class="num">Gasto 7d</th>
         </tr>
       </thead>
       <tbody>
@@ -126,9 +121,8 @@
           <td>{{ ad.campaign_name }}</td>
           <td class="num">{{ fmt(ad.roas_7d) }}x</td>
           <td class="num">{{ fmt(ad.roas_cum) }}x</td>
-          <td class="num">{{ ad.purchases_cum }}</td>
-          <td class="num">{{ fmt(ad.frequency_7d, 1) }}</td>
-          <td class="num">{{ fmtMoney(ad.spend_cum) }}</td>
+          <td class="num">{{ fmt(ad.frequency_day, 1) }}</td>
+          <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
         </tr>
       </tbody>
     </table>

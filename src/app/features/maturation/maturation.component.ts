@@ -27,15 +27,13 @@ export class MaturationComponent implements OnInit {
   async ngOnInit() {
     try {
       this.rows = await this.supa.selectWithFilter<MaturationObserved>(
-        'meta_maturation_observed',
-        '*',
-        q => q.order('age_days', { ascending: true })
+        'meta_maturation_observed', '*',
+        q => q.order('edad_al_leer', { ascending: true })
       );
 
-      // Find stability point: first age where days_changed = 0
       for (const r of this.rows) {
-        if (r.age_days > 0 && r.days_changed === 0) {
-          this.stableAfter = r.age_days;
+        if (r.edad_al_leer > 0 && r.dias_que_cambiaron === 0) {
+          this.stableAfter = r.edad_al_leer;
           break;
         }
       }
@@ -53,19 +51,19 @@ export class MaturationComponent implements OnInit {
     this.chart = new Chart(this.chartRef.nativeElement, {
       type: 'bar',
       data: {
-        labels: this.rows.map(r => r.age_days),
+        labels: this.rows.map(r => r.edad_al_leer),
         datasets: [
           {
             type: 'bar',
             label: 'Días que cambiaron',
-            data: this.rows.map(r => r.days_changed),
-            backgroundColor: this.rows.map(r => r.days_changed > 0 ? '#f97316' : 'rgba(134,239,172,0.3)'),
+            data: this.rows.map(r => r.dias_que_cambiaron),
+            backgroundColor: this.rows.map(r => r.dias_que_cambiaron > 0 ? '#f97316' : 'rgba(134,239,172,0.3)'),
             yAxisID: 'count'
           },
           {
             type: 'line',
             label: 'Cambio promedio %',
-            data: this.rows.map(r => r.avg_change_pct),
+            data: this.rows.map(r => r.cambio_prom_pct),
             borderColor: '#f3f4f6',
             borderWidth: 2,
             pointRadius: 3,
@@ -76,7 +74,7 @@ export class MaturationComponent implements OnInit {
           {
             type: 'line',
             label: 'Cambio máximo %',
-            data: this.rows.map(r => r.max_change_pct),
+            data: this.rows.map(r => r.cambio_max_pct),
             borderColor: '#fca5a5',
             borderWidth: 1,
             borderDash: [4, 4],
@@ -90,9 +88,7 @@ export class MaturationComponent implements OnInit {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
-        },
+        plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11 } } } },
         scales: {
           x: {
             title: { display: true, text: 'Edad del dato (días)', color: '#6b7280' },
@@ -100,20 +96,16 @@ export class MaturationComponent implements OnInit {
             ticks: { color: '#6b7280' }
           },
           count: {
-            type: 'linear',
-            position: 'left',
+            type: 'linear', position: 'left',
             title: { display: true, text: 'Días que cambiaron', color: '#6b7280' },
             grid: { color: 'rgba(30,30,62,0.5)' },
-            ticks: { color: '#6b7280' },
-            min: 0
+            ticks: { color: '#6b7280' }, min: 0
           },
           pct: {
-            type: 'linear',
-            position: 'right',
+            type: 'linear', position: 'right',
             title: { display: true, text: 'Cambio %', color: '#6b7280' },
             grid: { display: false },
-            ticks: { color: '#6b7280', callback: (v: any) => v + '%' },
-            min: 0
+            ticks: { color: '#6b7280', callback: (v: any) => v + '%' }, min: 0
           }
         }
       }

@@ -18,31 +18,23 @@ export class HealthComponent implements OnInit {
   runs: SyncRun[] = [];
   budget: ApiBudget[] = [];
   lastRun: SyncRun | null = null;
-  dimAlert = false;
 
   async ngOnInit() {
     try {
       const [runs, budget] = await Promise.all([
         this.supa.selectWithFilter<SyncRun>(
-          'meta_ads_sync_runs',
-          '*',
+          'meta_ads_sync_runs', '*',
           q => q.order('started_at', { ascending: false }).limit(20)
         ),
         this.supa.selectWithFilter<ApiBudget>(
-          'meta_api_budget',
-          '*',
-          q => q.order('date', { ascending: false }).limit(14)
+          'meta_api_budget', '*',
+          q => q.order('dia_mzt', { ascending: false }).limit(14)
         )
       ]);
 
       this.runs = runs;
       this.budget = budget;
       this.lastRun = runs[0] ?? null;
-
-      // Alert: dim_changes = 3084 means the comparison broke
-      if (this.lastRun && this.lastRun.dim_changes === 3084) {
-        this.dimAlert = true;
-      }
     } catch (e: any) {
       this.error = e.message ?? 'Error loading health data';
     } finally {
@@ -54,9 +46,7 @@ export class HealthComponent implements OnInit {
     return n.toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
-  fmtPct(n: number): string {
-    return n.toFixed(1) + '%';
-  }
+  fmtPct(n: number): string { return n.toFixed(1) + '%'; }
 
   timeSince(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();

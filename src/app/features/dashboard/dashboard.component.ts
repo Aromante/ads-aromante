@@ -9,14 +9,12 @@ interface DecisionAd {
   ad_id: string;
   ad_name: string;
   campaign_name: string;
-  spend_cum: number;
-  purchases_cum: number;
   roas_7d: number;
   roas_cum: number;
-  roas_diff: number;
-  consecutive_below: number;
-  frequency_7d: number;
+  frequency_day: number;
   spend_excess: number;
+  spend_7d: number;
+  compliant: boolean;
   action: 'kill' | 'reduce' | 'scale';
 }
 
@@ -43,31 +41,17 @@ export class DashboardComponent implements OnInit {
   reduceList: DecisionAd[] = [];
   scaleList: DecisionAd[] = [];
 
-  // KPIs
-  totalSpend = 0;
-  totalPurchases = 0;
-  activeAds = 0;
+  totalAds = 0;
+  compliantCount = 0;
+  nonCompliantCount = 0;
   avgRoas7d = 0;
-
-  // CPA target from meta_ads_config: breakeven 1.41x -> CPA ~$425
-  readonly CPA_TARGET = 425;
-  readonly FLOOR_ROAS = 1.41;
-
-  sortField = 'spend_excess';
-  sortDir: 'asc' | 'desc' = 'desc';
 
   async ngOnInit() {
     try {
-      const rows = await this.supa.selectWithFilter<FloorCompliance>(
-        'meta_floor_compliance',
-        '*',
-        q => q.eq('matured', true).eq('attribution_window', '7d_click')
-      );
-
+      const rows = await this.supa.select<FloorCompliance>('meta_floor_compliance');
       this.classify(rows);
       this.computeKpis(rows);
 
-      // Check if user has a passkey registered
       if (window.PublicKeyCredential) {
         const has = await this.passkey.hasPasskey();
         this.showPasskeyBanner.set(!has);
@@ -80,74 +64,45 @@ export class DashboardComponent implements OnInit {
   }
 
   private classify(rows: FloorCompliance[]) {
-    // Dedupe: keep latest date per ad_id
-    const byAd = new Map<string, FloorCompliance>();
     for (const r of rows) {
-      const existing = byAd.get(r.ad_id);
-      if (!existing || r.date > existing.date) {
-        byAd.set(r.ad_id, r);
-      }
-    }
-
-    for (const r of byAd.values()) {
       const base: DecisionAd = {
         ad_id: r.ad_id,
         ad_name: r.ad_name,
         campaign_name: r.campaign_name,
-        spend_cum: r.spend_cum,
-        purchases_cum: r.purchases_cum,
         roas_7d: r.roas_7d,
         roas_cum: r.roas_cum,
-        roas_diff: r.roas_diff,
-        consecutive_below: r.consecutive_below,
-        frequency_7d: r.frequency_7d,
+        frequency_day: r.frequency_day,
         spend_excess: r.spend_excess,
+        spend_7d: r.spend_7d,
+        compliant: r.compliant,
         action: 'scale'
       };
 
-      // Kill: spent > 3x CPA target with 0 purchases
-      if (r.spend_cum > 3 * this.CPA_TARGET && r.purchases_cum === 0) {
+      if (r.spend_excess > 0 && r.roas_7d === 0) {
         base.action = 'kill';
         this.killList.push(base);
-      }
-      // Reduce: rolling below cumulative 7+ days, or frequency > 3.5
-      else if (r.consecutive_below >= 7 || r.frequency_7d > 3.5) {
+      } else if (!r.compliant) {
         base.action = 'reduce';
         this.reduceList.push(base);
-      }
-      // Scale: ROAS >= floor sustained, >=10 purchases, frequency < 3.0
-      else if (r.roas_7d >= this.FLOOR_ROAS && r.purchases_cum >= 10 && r.frequency_7d < 3.0) {
+      } else if (r.compliant && r.roas_7d >= r.roas_min_applied) {
         base.action = 'scale';
         this.scaleList.push(base);
       }
     }
 
-    this.killList.sort((a, b) => b.spend_cum - a.spend_cum);
-    this.reduceList.sort((a, b) => b.consecutive_below - a.consecutive_below);
+    this.killList.sort((a, b) => b.spend_excess - a.spend_excess);
+    this.reduceList.sort((a, b) => b.spend_excess - a.spend_excess);
     this.scaleList.sort((a, b) => b.roas_7d - a.roas_7d);
   }
 
   private computeKpis(rows: FloorCompliance[]) {
-    const byAd = new Map<string, FloorCompliance>();
-    for (const r of rows) {
-      const existing = byAd.get(r.ad_id);
-      if (!existing || r.date > existing.date) {
-        byAd.set(r.ad_id, r);
-      }
-    }
-
-    this.activeAds = byAd.size;
-    let totalRoas = 0;
-    let count = 0;
-    for (const r of byAd.values()) {
-      this.totalSpend += r.spend_cum;
-      this.totalPurchases += r.purchases_cum;
-      if (r.roas_7d > 0) {
-        totalRoas += r.roas_7d;
-        count++;
-      }
-    }
-    this.avgRoas7d = count > 0 ? totalRoas / count : 0;
+    this.totalAds = rows.length;
+    this.compliantCount = rows.filter(r => r.compliant).length;
+    this.nonCompliantCount = rows.filter(r => !r.compliant).length;
+    const withRoas = rows.filter(r => r.roas_7d > 0);
+    this.avgRoas7d = withRoas.length > 0
+      ? withRoas.reduce((s, r) => s + r.roas_7d, 0) / withRoas.length
+      : 0;
   }
 
   goToAd(adId: string) {
@@ -165,15 +120,12 @@ export class DashboardComponent implements OnInit {
   async registerPasskey() {
     this.passkeyRegistering.set(true);
     this.passkeyError.set('');
-
     const result = await this.passkey.registerPasskey();
-
     if (result.success) {
       this.showPasskeyBanner.set(false);
     } else {
       this.passkeyError.set(result.error ?? 'Error registering passkey');
     }
-
     this.passkeyRegistering.set(false);
   }
 

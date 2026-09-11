@@ -4,13 +4,6 @@
 <div *ngIf="error" class="error-msg">{{ error }}</div>
 
 <ng-container *ngIf="!loading && !error">
-  <!-- Alert -->
-  <div class="card alert-card" *ngIf="dimAlert">
-    <strong>ALERTA:</strong> <code>dim_changes = 3,084</code> en la &uacute;ltima corrida.
-    La comparaci&oacute;n de cambios se rompi&oacute; y est&aacute; reescribiendo todo cada d&iacute;a.
-  </div>
-
-  <!-- Last run KPIs -->
   <div class="kpi-row" *ngIf="lastRun">
     <div class="kpi">
       <div class="kpi-label">&Uacute;ltima corrida</div>
@@ -24,7 +17,7 @@
     </div>
     <div class="kpi">
       <div class="kpi-label">Filas escritas</div>
-      <div class="kpi-value">{{ fmt(lastRun.rows_written) }}</div>
+      <div class="kpi-value">{{ fmt(lastRun.rows_upserted) }}</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Llamadas API</div>
@@ -34,46 +27,36 @@
       <div class="kpi-label">Cuota usada</div>
       <div class="kpi-value" [style.color]="lastRun.usage_pct > 60 ? '#fde047' : 'inherit'">{{ fmtPct(lastRun.usage_pct) }}</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">Cambios dim.</div>
-      <div class="kpi-value" [style.color]="lastRun.dim_changes === 3084 ? '#fca5a5' : 'inherit'">{{ fmt(lastRun.dim_changes) }}</div>
-    </div>
   </div>
 
-  <!-- Sync runs history -->
   <div class="card">
     <h2 class="card-title">&Uacute;ltimas 20 corridas</h2>
     <table class="data-table">
       <thead>
         <tr>
           <th>Inicio</th>
-          <th>Modo</th>
           <th>Status</th>
           <th class="num">Filas</th>
           <th class="num">API calls</th>
           <th class="num">Cuota %</th>
-          <th class="num">Dim changes</th>
           <th>Error</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let r of runs">
           <td>{{ r.started_at | date:'MM/dd HH:mm' }}</td>
-          <td><span class="badge badge-gray">{{ r.mode }}</span></td>
           <td>
             <span class="badge" [ngClass]="r.status === 'success' ? 'badge-green' : 'badge-red'">{{ r.status }}</span>
           </td>
-          <td class="num">{{ fmt(r.rows_written) }}</td>
+          <td class="num">{{ fmt(r.rows_upserted) }}</td>
           <td class="num">{{ fmt(r.api_calls) }}</td>
           <td class="num" [style.color]="r.usage_pct > 60 ? '#fde047' : 'inherit'">{{ fmtPct(r.usage_pct) }}</td>
-          <td class="num" [style.color]="r.dim_changes === 3084 ? '#fca5a5' : 'inherit'">{{ fmt(r.dim_changes) }}</td>
           <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">{{ r.error_message ?? '—' }}</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- API Budget -->
   <div class="card">
     <h2 class="card-title">Consumo de cuota API (14 d&iacute;as)</h2>
     <table class="data-table">
@@ -87,10 +70,10 @@
       </thead>
       <tbody>
         <tr *ngFor="let b of budget">
-          <td>{{ b.date }}</td>
-          <td class="num">{{ fmt(b.total_calls) }}</td>
-          <td class="num" [style.color]="b.peak_usage_pct > 60 ? '#fde047' : 'inherit'">{{ fmtPct(b.peak_usage_pct) }}</td>
-          <td class="num">{{ b.runs }}</td>
+          <td>{{ b.dia_mzt }}</td>
+          <td class="num">{{ fmt(b.llamadas) }}</td>
+          <td class="num" [style.color]="b.pico_uso_pct > 60 ? '#fde047' : 'inherit'">{{ fmtPct(b.pico_uso_pct) }}</td>
+          <td class="num">{{ b.corridas }}</td>
         </tr>
       </tbody>
     </table>

@@ -1,24 +1,24 @@
 /** Row from meta_ad_lifecycle view */
 export interface AdLifecycle {
   ad_id: string;
-  ad_name: string;
-  campaign_name: string;
   date: string;
   ad_day: number;
-  spend: number;
-  purchases: number;
-  revenue: number;
-  roas_daily: number;
-  roas_cum: number;
-  roas_7d: number;
-  frequency: number;
-  frequency_7d: number;
-  cpa: number;
-  ctr: number;
-  impressions: number;
-  clicks: number;
+  days_matured: number;
   matured: boolean;
-  attribution_window: string;
+  learning_phase: boolean;
+  spend_day: number;
+  purchases_day: number;
+  frequency_day: number;
+  spend_cum: number;
+  purchases_cum: number;
+  value_cum: number;
+  roas_cum: number;
+  cpa_cum: number;
+  spend_7d: number;
+  purchases_7d: number;
+  value_7d: number;
+  roas_7d: number;
+  cpa_7d: number;
 }
 
 /** Row from meta_floor_compliance view */
@@ -26,48 +26,53 @@ export interface FloorCompliance {
   ad_id: string;
   ad_name: string;
   campaign_name: string;
-  date: string;
-  spend: number;
-  spend_cum: number;
-  purchases: number;
-  purchases_cum: number;
+  objective: string;
+  is_conversion: boolean;
+  is_cbo: boolean;
+  campaign_role: string | null;
+  effective_status: string;
+  spend_7d: number;
+  value_7d: number;
   roas_7d: number;
   roas_cum: number;
-  roas_diff: number;
-  consecutive_below: number;
-  frequency_7d: number;
+  frequency_day: number;
+  roas_min_applied: number;
   spend_excess: number;
-  matured: boolean;
-  attribution_window: string;
+  compliant: boolean;
 }
 
-/** Row from meta_ads_insights_daily */
+/** Row from meta_ads_daily_final view */
 export interface InsightDaily {
   ad_id: string;
   date: string;
   attribution_window: string;
+  snapshot_date: string;
   spend: number;
   impressions: number;
-  clicks: number;
-  purchases: number;
-  revenue: number;
-  roas: number;
-  cpa: number;
-  ctr: number;
+  reach: number;
   frequency: number;
-  snapshot_date: string;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  purchases: number;
+  purchase_value: number;
+  add_to_cart: number;
+  initiate_checkout: number;
+  days_matured: number;
 }
 
-/** Row from meta_maturation_observed */
+/** Row from meta_maturation_observed view */
 export interface MaturationObserved {
-  age_days: number;
-  days_compared: number;
-  days_changed: number;
-  avg_change_pct: number;
-  max_change_pct: number;
+  edad_al_leer: number;
+  observaciones: number;
+  cambio_prom_pct: number;
+  cambio_max_pct: number;
+  dias_que_cambiaron: number;
+  compras_agregadas: number;
 }
 
-/** Row from meta_ads_dim */
+/** Row from meta_ads_dim table */
 export interface AdDim {
   ad_id: string;
   ad_name: string;
@@ -75,34 +80,36 @@ export interface AdDim {
   campaign_name: string;
   adset_name: string;
   creative_base: string;
-  status: string;
+  effective_status: string;
   valid_from: string;
   valid_to: string | null;
 }
 
-/** Row from meta_ads_sync_runs */
+/** Row from meta_ads_sync_runs table */
 export interface SyncRun {
   id: number;
   started_at: string;
   finished_at: string;
+  window_since: string;
+  window_until: string;
+  rows_upserted: number;
   status: string;
-  mode: string;
-  rows_written: number;
   api_calls: number;
   usage_pct: number;
-  dim_changes: number;
   error_message: string | null;
 }
 
-/** Row from meta_api_budget */
+/** Row from meta_api_budget view */
 export interface ApiBudget {
-  date: string;
-  total_calls: number;
-  peak_usage_pct: number;
-  runs: number;
+  dia_mzt: string;
+  corridas: number;
+  con_error: number;
+  llamadas: number;
+  pico_uso_pct: number;
+  bloqueo_min: number;
 }
 
-/** Row from meta_campaigns */
+/** Row from meta_campaigns table */
 export interface Campaign {
   campaign_id: string;
   campaign_name: string;

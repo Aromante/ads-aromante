@@ -1,7 +1,6 @@
 <h1 class="page-title">Detecci&oacute;n de Duplicados</h1>
 <p class="page-desc">
   Anuncios activos que comparten el mismo <code>creative_base</code> compiten entre s&iacute; en la subasta.
-  Mantener duplicados activos canibaliza el rendimiento.
 </p>
 
 <div *ngIf="loading" class="loading">Analizando dimensiones...</div>
@@ -30,7 +29,7 @@
           <td class="clickable" (click)="goToAd(a.ad_id)">{{ a.ad_name }}</td>
           <td>{{ a.campaign_name }}</td>
           <td>
-            <span class="badge" [ngClass]="a.status === 'ACTIVE' ? 'badge-green' : 'badge-gray'">{{ a.status }}</span>
+            <span class="badge" [ngClass]="a.effective_status === 'ACTIVE' ? 'badge-green' : 'badge-gray'">{{ a.effective_status }}</span>
           </td>
         </tr>
       </tbody>

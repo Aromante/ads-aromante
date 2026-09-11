@@ -4,13 +4,12 @@
 <div *ngIf="error" class="error-msg">{{ error }}</div>
 
 <ng-container *ngIf="!loading && !error && rows.length > 0">
-  <h1 class="page-title">{{ adName }} <span class="attr-label">7d_click</span></h1>
+  <h1 class="page-title">{{ adName || adId }} <span class="attr-label">7d_click</span></h1>
   <p class="subtitle">{{ campaignName }}</p>
 
-  <!-- KPIs -->
   <div class="kpi-row">
     <div class="kpi">
-      <div class="kpi-label">Gasto total</div>
+      <div class="kpi-label">Gasto acumulado</div>
       <div class="kpi-value">{{ fmtMoney(totalSpend) }}</div>
     </div>
     <div class="kpi">
@@ -30,26 +29,22 @@
       <div class="kpi-value">{{ maxDay }}d</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Frecuencia 7d</div>
+      <div class="kpi-label">Frecuencia</div>
       <div class="kpi-value" [style.color]="currentFreq > 3.5 ? '#fde047' : 'inherit'">{{ fmt(currentFreq, 1) }}</div>
     </div>
   </div>
 
-  <!-- Crossover alert -->
   <div class="card alert-card" *ngIf="crossoverDay !== null">
     El ROAS m&oacute;vil cruzó por debajo del acumulado en el d&iacute;a <strong>{{ crossoverDay }}</strong>.
-    Esto indica deterioro estructural.
   </div>
 
-  <!-- Lifecycle chart -->
   <div class="card chart-card">
-    <h2 class="card-title">Tres lentes: ROAS diario / acumulado / 7d m&oacute;vil</h2>
+    <h2 class="card-title">ROAS acumulado vs 7d m&oacute;vil + gasto diario</h2>
     <div class="chart-container">
       <canvas #lifecycleChart></canvas>
     </div>
   </div>
 
-  <!-- Raw data table -->
   <div class="card">
     <h2 class="card-title">Datos por d&iacute;a de vida</h2>
     <div style="max-height: 400px; overflow-y: auto;">
@@ -60,22 +55,20 @@
             <th>Fecha</th>
             <th class="num">Gasto</th>
             <th class="num">Compras</th>
-            <th class="num">ROAS diario</th>
             <th class="num">ROAS acum.</th>
             <th class="num">ROAS 7d</th>
-            <th class="num">Frecuencia</th>
+            <th class="num">Freq.</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let r of rows" [class.immature]="!r.matured">
             <td class="num">{{ r.ad_day }}</td>
             <td>{{ r.date }}</td>
-            <td class="num">{{ fmtMoney(r.spend) }}</td>
-            <td class="num">{{ r.purchases }}</td>
-            <td class="num">{{ fmt(r.roas_daily) }}x</td>
+            <td class="num">{{ fmtMoney(r.spend_day) }}</td>
+            <td class="num">{{ r.purchases_day }}</td>
             <td class="num">{{ fmt(r.roas_cum) }}x</td>
             <td class="num">{{ fmt(r.roas_7d) }}x</td>
-            <td class="num">{{ fmt(r.frequency, 1) }}</td>
+            <td class="num">{{ fmt(r.frequency_day, 1) }}</td>
           </tr>
         </tbody>
       </table>

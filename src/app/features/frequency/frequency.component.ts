@@ -2,20 +2,19 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
-import { AdLifecycle } from '../../core/models/meta.models';
+import { AdLifecycle, AdDim } from '../../core/models/meta.models';
 
 type Quadrant = 'sustain' | 'fatigue' | 'scale' | 'fix';
 
 interface FrequencyAd {
   ad_id: string;
   ad_name: string;
-  campaign_name: string;
-  frequency_7d: number;
+  frequency_day: number;
   roas_7d: number;
   roas_cum: number;
   roas_trend: 'up' | 'down' | 'stable';
   quadrant: Quadrant;
-  purchases: number;
+  purchases_cum: number;
 }
 
 @Component({
@@ -41,13 +40,19 @@ export class FrequencyComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      const rows = await this.supa.selectWithFilter<AdLifecycle>(
-        'meta_ad_lifecycle',
-        '*',
-        q => q.eq('matured', true).eq('attribution_window', '7d_click').order('ad_id').order('ad_day', { ascending: true })
-      );
+      const [rows, dims] = await Promise.all([
+        this.supa.selectWithFilter<AdLifecycle>(
+          'meta_ad_lifecycle', '*',
+          q => q.eq('matured', true).order('ad_id').order('ad_day', { ascending: true })
+        ),
+        this.supa.selectWithFilter<AdDim>(
+          'meta_ads_dim', 'ad_id,ad_name',
+          q => q.is('valid_to', null)
+        )
+      ]);
 
-      // Group by ad_id, take latest values + compute trend
+      const nameMap = new Map(dims.map(d => [d.ad_id, d.ad_name]));
+
       const byAd = new Map<string, AdLifecycle[]>();
       for (const r of rows) {
         if (!byAd.has(r.ad_id)) byAd.set(r.ad_id, []);
@@ -57,9 +62,8 @@ export class FrequencyComponent implements OnInit {
       for (const [adId, adRows] of byAd) {
         if (adRows.length < 7) continue;
         const last = adRows[adRows.length - 1];
-        const freq = last.frequency_7d ?? last.frequency;
+        const freq = last.frequency_day;
 
-        // Trend: compare avg roas_7d of last 7 days vs previous 7
         const recent = adRows.slice(-7);
         const previous = adRows.slice(-14, -7);
         const avgRecent = recent.reduce((s, r) => s + r.roas_7d, 0) / recent.length;
@@ -80,22 +84,20 @@ export class FrequencyComponent implements OnInit {
 
         const entry: FrequencyAd = {
           ad_id: adId,
-          ad_name: last.ad_name,
-          campaign_name: last.campaign_name,
-          frequency_7d: freq,
+          ad_name: nameMap.get(adId) ?? adId,
+          frequency_day: freq,
           roas_7d: last.roas_7d,
           roas_cum: last.roas_cum,
           roas_trend: trend,
           quadrant,
-          purchases: adRows.reduce((s, r) => s + r.purchases, 0)
+          purchases_cum: last.purchases_cum
         };
 
         this[quadrant].push(entry);
       }
 
-      // Sort each by frequency descending
       for (const list of [this.sustain, this.fatigue, this.scale, this.fix]) {
-        list.sort((a, b) => b.frequency_7d - a.frequency_7d);
+        list.sort((a, b) => b.frequency_day - a.frequency_day);
       }
     } catch (e: any) {
       this.error = e.message ?? 'Error loading frequency data';
@@ -104,9 +106,7 @@ export class FrequencyComponent implements OnInit {
     }
   }
 
-  goToAd(adId: string) {
-    this.router.navigate(['/ad', adId]);
-  }
+  goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
 
   fmt(n: number, d = 2): string {
     return n.toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });

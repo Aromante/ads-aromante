@@ -1,8 +1,7 @@
 <h1 class="page-title">Curva de Maduraci&oacute;n</h1>
 <p class="page-desc">
   Mide cu&aacute;nto cambia un d&iacute;a de datos entre lecturas sucesivas.
-  Cuando <code>d&iacute;as_que_cambiaron = 0</code> a partir de cierta edad, se puede confiar en el n&uacute;mero.
-  Necesita ~2 semanas de snapshots acumulados para ser confiable.
+  Cuando <code>dias_que_cambiaron = 0</code> a partir de cierta edad, se puede confiar en el n&uacute;mero.
 </p>
 
 <div *ngIf="loading" class="loading">Cargando datos de maduraci&oacute;n...</div>
@@ -32,19 +31,19 @@
       <thead>
         <tr>
           <th class="num">Edad (d&iacute;as)</th>
-          <th class="num">D&iacute;as comparados</th>
+          <th class="num">Observaciones</th>
           <th class="num">D&iacute;as cambiaron</th>
           <th class="num">Cambio prom. %</th>
           <th class="num">Cambio m&aacute;x. %</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let r of rows" [style.color]="r.days_changed === 0 ? '#86efac' : 'inherit'">
-          <td class="num">{{ r.age_days }}</td>
-          <td class="num">{{ r.days_compared }}</td>
-          <td class="num">{{ r.days_changed }}</td>
-          <td class="num">{{ fmt(r.avg_change_pct) }}%</td>
-          <td class="num">{{ fmt(r.max_change_pct) }}%</td>
+        <tr *ngFor="let r of rows" [style.color]="r.dias_que_cambiaron === 0 ? '#86efac' : 'inherit'">
+          <td class="num">{{ r.edad_al_leer }}</td>
+          <td class="num">{{ r.observaciones }}</td>
+          <td class="num">{{ r.dias_que_cambiaron }}</td>
+          <td class="num">{{ fmt(r.cambio_prom_pct) }}%</td>
+          <td class="num">{{ fmt(r.cambio_max_pct) }}%</td>
         </tr>
       </tbody>
     </table>
@@ -52,6 +51,5 @@
 
   <div *ngIf="rows.length === 0" class="card" style="color: #6b7280;">
     A&uacute;n no hay suficientes snapshots para construir la curva.
-    Necesitas al menos 2 semanas de corridas del cron.
   </div>
 </ng-container>
