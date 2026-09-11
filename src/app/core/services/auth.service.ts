@@ -1,28 +1,48 @@
-import { Injectable } from '@angular/core';
-
-export type AuthGroup = 'meta';
-
-const PINS: Record<AuthGroup, string> = {
-  meta: '5523'
-};
-
-export const GROUP_DEFAULT_ROUTE: Record<AuthGroup, string> = {
-  meta: '/dashboard'
-};
+import { Injectable, inject, signal } from '@angular/core';
+import { SupabaseService } from './supabase.service';
+import { User, Session } from '@supabase/supabase-js';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private unlocked = new Set<AuthGroup>();
+  private supa = inject(SupabaseService);
 
-  isUnlocked(group: AuthGroup): boolean {
-    return this.unlocked.has(group);
+  readonly user = signal<User | null>(null);
+  readonly loading = signal(true);
+
+  constructor() {
+    // Restore session on init
+    this.supa.client.auth.getSession().then(({ data }) => {
+      this.user.set(data.session?.user ?? null);
+      this.loading.set(false);
+    });
+
+    // Listen for auth changes
+    this.supa.client.auth.onAuthStateChange((_event, session) => {
+      this.user.set(session?.user ?? null);
+      this.loading.set(false);
+    });
   }
 
-  unlock(group: AuthGroup, pin: string): boolean {
-    if (PINS[group] === pin) {
-      this.unlocked.add(group);
-      return true;
-    }
-    return false;
+  get isAuthenticated(): boolean {
+    return this.user() !== null;
+  }
+
+  async sendMagicLink(email: string): Promise<{ error: string | null }> {
+    const { error } = await this.supa.client.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false }
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  }
+
+  async signOut(): Promise<void> {
+    await this.supa.client.auth.signOut();
+    this.user.set(null);
+  }
+
+  async getSession(): Promise<Session | null> {
+    const { data } = await this.supa.client.auth.getSession();
+    return data.session;
   }
 }

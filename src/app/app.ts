@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
-import { AuthService, AuthGroup } from './core/services/auth.service';
+import { AuthService } from './core/services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -10,9 +10,9 @@ import { AuthService, AuthGroup } from './core/services/auth.service';
   styleUrl: './app.scss'
 })
 export class App {
-  private auth = inject(AuthService);
+  auth = inject(AuthService);
 
-  isUnlocked(group: AuthGroup): boolean {
-    return this.auth.isUnlocked(group);
+  async logout() {
+    await this.auth.signOut();
   }
 }

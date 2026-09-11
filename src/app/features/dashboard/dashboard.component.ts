@@ -1,7 +1,8 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { PasskeyService } from '../../core/services/passkey.service';
 import { FloorCompliance } from '../../core/models/meta.models';
 
 interface DecisionAd {
@@ -29,6 +30,11 @@ interface DecisionAd {
 export class DashboardComponent implements OnInit {
   private supa = inject(SupabaseService);
   private router = inject(Router);
+  private passkey = inject(PasskeyService);
+
+  showPasskeyBanner = signal(false);
+  passkeyRegistering = signal(false);
+  passkeyError = signal('');
 
   loading = true;
   error = '';
@@ -60,6 +66,12 @@ export class DashboardComponent implements OnInit {
 
       this.classify(rows);
       this.computeKpis(rows);
+
+      // Check if user has a passkey registered
+      if (window.PublicKeyCredential) {
+        const has = await this.passkey.hasPasskey();
+        this.showPasskeyBanner.set(!has);
+      }
     } catch (e: any) {
       this.error = e.message ?? 'Error loading data';
     } finally {
@@ -148,5 +160,24 @@ export class DashboardComponent implements OnInit {
 
   fmtMoney(n: number): string {
     return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  async registerPasskey() {
+    this.passkeyRegistering.set(true);
+    this.passkeyError.set('');
+
+    const result = await this.passkey.registerPasskey();
+
+    if (result.success) {
+      this.showPasskeyBanner.set(false);
+    } else {
+      this.passkeyError.set(result.error ?? 'Error registering passkey');
+    }
+
+    this.passkeyRegistering.set(false);
+  }
+
+  dismissPasskeyBanner() {
+    this.showPasskeyBanner.set(false);
   }
 }

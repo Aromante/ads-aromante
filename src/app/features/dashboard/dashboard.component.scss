@@ -5,3 +5,54 @@
 
   .badge { flex-shrink: 0; }
 }
+
+.passkey-banner {
+  background: #1a1a3a;
+  border: 1px solid #f97316;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.passkey-banner-text {
+  flex: 1;
+  font-size: 13px;
+  color: #f3f4f6;
+  min-width: 200px;
+}
+
+.passkey-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.passkey-register-btn {
+  background: #f97316;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) { background: #ea580c; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.passkey-dismiss-btn {
+  background: none;
+  border: 1px solid #2d2d52;
+  color: #6b7280;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover { color: #9ca3af; border-color: #4b5563; }
+}

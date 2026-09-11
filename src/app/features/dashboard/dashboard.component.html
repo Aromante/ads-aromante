@@ -1,3 +1,17 @@
+<!-- Passkey registration banner -->
+<div class="passkey-banner" *ngIf="showPasskeyBanner()">
+  <div class="passkey-banner-text">
+    <strong>&#128275; Activa Touch ID</strong> para entrar sin email la pr&oacute;xima vez.
+  </div>
+  <div class="passkey-banner-actions">
+    <button class="passkey-register-btn" (click)="registerPasskey()" [disabled]="passkeyRegistering()">
+      {{ passkeyRegistering() ? 'Registrando...' : 'Activar Touch ID' }}
+    </button>
+    <button class="passkey-dismiss-btn" (click)="dismissPasskeyBanner()">Despu&eacute;s</button>
+  </div>
+  <div *ngIf="passkeyError()" style="color: #fca5a5; font-size: 12px; margin-top: 8px;">{{ passkeyError() }}</div>
+</div>
+
 <h1 class="page-title">Dashboard de Decisi&oacute;n Diaria <span class="attr-label">7d_click</span></h1>
 
 <div *ngIf="loading" class="loading">Cargando datos...</div>

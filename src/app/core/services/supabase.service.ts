@@ -10,7 +10,7 @@ export class SupabaseService {
     this.client = createClient(
       environment.supabase.url,
       environment.supabase.anonKey,
-      { auth: { persistSession: false } }
+      { auth: { persistSession: true, autoRefreshToken: true } }
     );
   }
 
