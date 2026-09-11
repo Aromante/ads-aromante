@@ -11,13 +11,18 @@ interface DecisionAd {
   ad_id: string;
   ad_name: string;
   campaign_name: string;
+  effective_status: string;
   roas_7d: number;
   roas_cum: number;
+  roas_min_applied: number;
   frequency_day: number;
   spend_excess: number;
   spend_7d: number;
+  value_7d: number;
   compliant: boolean;
 }
+
+type StatusFilter = 'all' | 'active' | 'paused';
 
 @Component({
   selector: 'app-dashboard',
@@ -39,18 +44,29 @@ export class DashboardComponent implements OnInit {
   loading = true;
   error = '';
 
-  // All data
-  private allKill: DecisionAd[] = [];
-  private allReduce: DecisionAd[] = [];
-  private allScale: DecisionAd[] = [];
+  private allAds: DecisionAd[] = [];
 
-  // Search
-  search = '';
+  // Filters
+  search = signal('');
+  statusFilter = signal<StatusFilter>('active');
 
-  // Filtered lists (computed from search)
-  get killList(): DecisionAd[] { return this.filterList(this.allKill); }
-  get reduceList(): DecisionAd[] { return this.filterList(this.allReduce); }
-  get scaleList(): DecisionAd[] { return this.filterList(this.allScale); }
+  // Counts by status
+  activeCount = 0;
+  pausedCount = 0;
+
+  // KPIs (computed from filtered)
+  totalAds = 0;
+  compliantCount = 0;
+  nonCompliantCount = 0;
+  avgRoas7d = 0;
+  totalSpend7d = 0;
+  totalValue7d = 0;
+  totalExcess = 0;
+
+  // Filtered + classified
+  killList: DecisionAd[] = [];
+  reduceList: DecisionAd[] = [];
+  scaleList: DecisionAd[] = [];
 
   // Pagination
   killPage = 1;
@@ -61,28 +77,38 @@ export class DashboardComponent implements OnInit {
   get killPaged(): DecisionAd[] { return this.paginate(this.killList, this.killPage); }
   get reducePaged(): DecisionAd[] { return this.paginate(this.reduceList, this.reducePage); }
   get scalePaged(): DecisionAd[] { return this.paginate(this.scaleList, this.scalePage); }
-
   get killPages(): number { return Math.ceil(this.killList.length / this.PAGE_SIZE); }
   get reducePages(): number { return Math.ceil(this.reduceList.length / this.PAGE_SIZE); }
   get scalePages(): number { return Math.ceil(this.scaleList.length / this.PAGE_SIZE); }
 
-  // KPIs
-  totalAds = 0;
-  compliantCount = 0;
-  nonCompliantCount = 0;
-  avgRoas7d = 0;
-
   async ngOnInit() {
     try {
       let rows = this.cache.get<FloorCompliance[]>('floor_compliance');
-
       if (!rows) {
         rows = await this.supa.select<FloorCompliance>('meta_floor_compliance');
         this.cache.set('floor_compliance', rows);
       }
 
-      this.classify(rows);
-      this.computeKpis(rows);
+      // Build allAds
+      this.allAds = rows.map(r => ({
+        ad_id: r.ad_id,
+        ad_name: r.ad_name,
+        campaign_name: r.campaign_name,
+        effective_status: r.effective_status ?? 'UNKNOWN',
+        roas_7d: r.roas_7d,
+        roas_cum: r.roas_cum,
+        roas_min_applied: r.roas_min_applied,
+        frequency_day: r.frequency_day,
+        spend_excess: r.spend_excess,
+        spend_7d: r.spend_7d,
+        value_7d: r.value_7d,
+        compliant: r.compliant
+      }));
+
+      this.activeCount = this.allAds.filter(a => a.effective_status === 'ACTIVE').length;
+      this.pausedCount = this.allAds.length - this.activeCount;
+
+      this.applyFilters();
 
       if (window.PublicKeyCredential) {
         const has = await this.passkey.hasPasskey();
@@ -95,51 +121,70 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  private classify(rows: FloorCompliance[]) {
-    for (const r of rows) {
-      const base: DecisionAd = {
-        ad_id: r.ad_id,
-        ad_name: r.ad_name,
-        campaign_name: r.campaign_name,
-        roas_7d: r.roas_7d,
-        roas_cum: r.roas_cum,
-        frequency_day: r.frequency_day,
-        spend_excess: r.spend_excess,
-        spend_7d: r.spend_7d,
-        compliant: r.compliant
-      };
+  applyFilters() {
+    let filtered = this.allAds;
 
-      if (r.spend_excess > 0 && r.roas_7d === 0) {
-        this.allKill.push(base);
-      } else if (!r.compliant) {
-        this.allReduce.push(base);
-      } else if (r.compliant) {
-        this.allScale.push(base);
+    // Status filter
+    const sf = this.statusFilter();
+    if (sf === 'active') {
+      filtered = filtered.filter(a => a.effective_status === 'ACTIVE');
+    } else if (sf === 'paused') {
+      filtered = filtered.filter(a => a.effective_status !== 'ACTIVE');
+    }
+
+    // Search
+    const q = this.search().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(a =>
+        a.ad_name.toLowerCase().includes(q) ||
+        a.campaign_name.toLowerCase().includes(q) ||
+        a.ad_id.includes(q)
+      );
+    }
+
+    // Classify
+    this.killList = [];
+    this.reduceList = [];
+    this.scaleList = [];
+
+    for (const ad of filtered) {
+      if (ad.spend_excess > 0 && ad.roas_7d === 0) {
+        this.killList.push(ad);
+      } else if (!ad.compliant) {
+        this.reduceList.push(ad);
+      } else {
+        this.scaleList.push(ad);
       }
     }
 
-    this.allKill.sort((a, b) => b.spend_excess - a.spend_excess);
-    this.allReduce.sort((a, b) => b.spend_excess - a.spend_excess);
-    this.allScale.sort((a, b) => b.roas_7d - a.roas_7d);
+    this.killList.sort((a, b) => b.spend_excess - a.spend_excess);
+    this.reduceList.sort((a, b) => b.spend_excess - a.spend_excess);
+    this.scaleList.sort((a, b) => b.roas_7d - a.roas_7d);
+
+    // KPIs
+    this.totalAds = filtered.length;
+    this.compliantCount = filtered.filter(a => a.compliant).length;
+    this.nonCompliantCount = filtered.filter(a => !a.compliant).length;
+    const withRoas = filtered.filter(a => a.roas_7d > 0);
+    this.avgRoas7d = withRoas.length > 0 ? withRoas.reduce((s, a) => s + a.roas_7d, 0) / withRoas.length : 0;
+    this.totalSpend7d = filtered.reduce((s, a) => s + a.spend_7d, 0);
+    this.totalValue7d = filtered.reduce((s, a) => s + a.value_7d, 0);
+    this.totalExcess = filtered.reduce((s, a) => s + (a.spend_excess > 0 ? a.spend_excess : 0), 0);
+
+    // Reset pagination
+    this.killPage = 1;
+    this.reducePage = 1;
+    this.scalePage = 1;
   }
 
-  private computeKpis(rows: FloorCompliance[]) {
-    this.totalAds = rows.length;
-    this.compliantCount = rows.filter(r => r.compliant).length;
-    this.nonCompliantCount = rows.filter(r => !r.compliant).length;
-    const withRoas = rows.filter(r => r.roas_7d > 0);
-    this.avgRoas7d = withRoas.length > 0
-      ? withRoas.reduce((s, r) => s + r.roas_7d, 0) / withRoas.length
-      : 0;
+  onSearchChange(value: string) {
+    this.search.set(value);
+    this.applyFilters();
   }
 
-  private filterList(list: DecisionAd[]): DecisionAd[] {
-    if (!this.search) return list;
-    const q = this.search.toLowerCase();
-    return list.filter(a =>
-      a.ad_name.toLowerCase().includes(q) ||
-      a.campaign_name.toLowerCase().includes(q)
-    );
+  setStatusFilter(f: StatusFilter) {
+    this.statusFilter.set(f);
+    this.applyFilters();
   }
 
   private paginate(list: DecisionAd[], page: number): DecisionAd[] {
@@ -147,18 +192,28 @@ export class DashboardComponent implements OnInit {
     return list.slice(start, start + this.PAGE_SIZE);
   }
 
-  onSearch() {
-    this.killPage = 1;
-    this.reducePage = 1;
-    this.scalePage = 1;
+  statusLabel(s: string): string {
+    const map: Record<string, string> = {
+      'ACTIVE': 'Activo',
+      'PAUSED': 'Pausado',
+      'CAMPAIGN_PAUSED': 'Camp. pausada',
+      'ADSET_PAUSED': 'Adset pausado',
+      'DISAPPROVED': 'Rechazado',
+      'WITH_ISSUES': 'Con problemas'
+    };
+    return map[s] ?? s;
   }
 
-  goToAd(adId: string) {
-    this.router.navigate(['/ad', adId]);
+  statusClass(s: string): string {
+    if (s === 'ACTIVE') return 'badge-green';
+    if (s === 'DISAPPROVED' || s === 'WITH_ISSUES') return 'badge-red';
+    return 'badge-gray';
   }
 
-  fmt(n: number, decimals = 2): string {
-    return n.toLocaleString('es-MX', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
+
+  fmt(n: number, d = 2): string {
+    return n.toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
   fmtMoney(n: number): string {
@@ -169,15 +224,10 @@ export class DashboardComponent implements OnInit {
     this.passkeyRegistering.set(true);
     this.passkeyError.set('');
     const result = await this.passkey.registerPasskey();
-    if (result.success) {
-      this.showPasskeyBanner.set(false);
-    } else {
-      this.passkeyError.set(result.error ?? 'Error registering passkey');
-    }
+    if (result.success) { this.showPasskeyBanner.set(false); }
+    else { this.passkeyError.set(result.error ?? 'Error'); }
     this.passkeyRegistering.set(false);
   }
 
-  dismissPasskeyBanner() {
-    this.showPasskeyBanner.set(false);
-  }
+  dismissPasskeyBanner() { this.showPasskeyBanner.set(false); }
 }

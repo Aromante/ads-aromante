@@ -1,4 +1,4 @@
-<!-- Passkey registration banner -->
+<!-- Passkey banner -->
 <div class="passkey-banner" *ngIf="showPasskeyBanner()">
   <div class="passkey-banner-text">
     <strong>&#128275; Activa Touch ID</strong> para entrar sin email la pr&oacute;xima vez.
@@ -18,53 +18,75 @@
 <div *ngIf="error" class="error-msg">{{ error }}</div>
 
 <ng-container *ngIf="!loading && !error">
+  <!-- Filters -->
+  <div class="filters-row">
+    <div class="status-tabs">
+      <button class="tab" [class.active]="statusFilter() === 'active'" (click)="setStatusFilter('active')">
+        Activos <span class="tab-count">{{ activeCount }}</span>
+      </button>
+      <button class="tab" [class.active]="statusFilter() === 'paused'" (click)="setStatusFilter('paused')">
+        Pausados <span class="tab-count">{{ pausedCount }}</span>
+      </button>
+      <button class="tab" [class.active]="statusFilter() === 'all'" (click)="setStatusFilter('all')">
+        Todos <span class="tab-count">{{ activeCount + pausedCount }}</span>
+      </button>
+    </div>
+    <input
+      type="text"
+      [ngModel]="search()"
+      (ngModelChange)="onSearchChange($event)"
+      placeholder="Buscar anuncio o campa&ntilde;a..."
+      class="search-input"
+    />
+  </div>
+
   <!-- KPIs -->
   <div class="kpi-row">
     <div class="kpi">
-      <div class="kpi-label">Anuncios evaluados</div>
+      <div class="kpi-label">Anuncios</div>
       <div class="kpi-value">{{ totalAds }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Cumplen piso</div>
+      <div class="kpi-label">Gasto 7d</div>
+      <div class="kpi-value">{{ fmtMoney(totalSpend7d) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Ingreso 7d</div>
+      <div class="kpi-value">{{ fmtMoney(totalValue7d) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">ROAS 7d prom.</div>
+      <div class="kpi-value">{{ fmt(avgRoas7d) }}x</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Cumplen</div>
       <div class="kpi-value" style="color: #86efac;">{{ compliantCount }}</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">No cumplen</div>
       <div class="kpi-value" style="color: #fca5a5;">{{ nonCompliantCount }}</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">ROAS 7d promedio</div>
-      <div class="kpi-value">{{ fmt(avgRoas7d) }}x</div>
+    <div class="kpi" *ngIf="totalExcess > 0">
+      <div class="kpi-label">Gasto en exceso</div>
+      <div class="kpi-value" style="color: #fca5a5;">{{ fmtMoney(totalExcess) }}</div>
     </div>
   </div>
 
-  <!-- Search -->
-  <div class="search-bar">
-    <input
-      type="text"
-      [(ngModel)]="search"
-      (ngModelChange)="onSearch()"
-      placeholder="Buscar anuncio o campa&ntilde;a..."
-      class="search-input"
-    />
-    <span class="search-count" *ngIf="search">
-      {{ killList.length + reduceList.length + scaleList.length }} resultados
-    </span>
-  </div>
-
   <!-- KILL LIST -->
-  <div class="card">
+  <div class="card" *ngIf="killList.length > 0">
     <h2 class="card-title">
       <span class="badge badge-red">Apagar</span>
-      Gasto sin compras &mdash; {{ killList.length }} anuncios
+      Gasto sin retorno &mdash; {{ killList.length }}
     </h2>
-    <table class="data-table" *ngIf="killPaged.length > 0">
+    <table class="data-table">
       <thead>
         <tr>
           <th>Anuncio</th>
           <th>Campa&ntilde;a</th>
+          <th>Status</th>
           <th class="num">Gasto 7d</th>
           <th class="num">Exceso</th>
+          <th class="num">Piso</th>
           <th class="num">Freq.</th>
         </tr>
       </thead>
@@ -72,98 +94,104 @@
         <tr *ngFor="let ad of killPaged">
           <td class="clickable" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</td>
           <td>{{ ad.campaign_name }}</td>
+          <td><span class="badge" [ngClass]="statusClass(ad.effective_status)">{{ statusLabel(ad.effective_status) }}</span></td>
           <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
           <td class="num" style="color: #fca5a5;">{{ fmtMoney(ad.spend_excess) }}</td>
+          <td class="num">{{ fmt(ad.roas_min_applied, 1) }}x</td>
           <td class="num">{{ fmt(ad.frequency_day, 1) }}</td>
         </tr>
       </tbody>
     </table>
-    <ng-container *ngIf="killPages > 1">
-      <ng-container *ngTemplateOutlet="pager; context: { $implicit: killPage, pages: killPages, set: 'kill' }"></ng-container>
-    </ng-container>
-    <p *ngIf="killList.length === 0" class="empty">Ning&uacute;n anuncio en esta categor&iacute;a.</p>
+    <div class="pager" *ngIf="killPages > 1">
+      <button class="pager-btn" [disabled]="killPage <= 1" (click)="killPage = killPage - 1">&lsaquo;</button>
+      <span class="pager-info">{{ killPage }} / {{ killPages }}</span>
+      <button class="pager-btn" [disabled]="killPage >= killPages" (click)="killPage = killPage + 1">&rsaquo;</button>
+    </div>
   </div>
 
   <!-- REDUCE LIST -->
   <div class="card">
     <h2 class="card-title">
       <span class="badge badge-yellow">Reducir</span>
-      No cumplen piso de ROAS &mdash; {{ reduceList.length }} anuncios
+      Debajo del piso &mdash; {{ reduceList.length }}
     </h2>
     <table class="data-table" *ngIf="reducePaged.length > 0">
       <thead>
         <tr>
           <th>Anuncio</th>
           <th>Campa&ntilde;a</th>
+          <th>Status</th>
           <th class="num">ROAS 7d</th>
           <th class="num">ROAS acum.</th>
+          <th class="num">Piso</th>
+          <th class="num">Gasto 7d</th>
+          <th class="num">Ingreso 7d</th>
+          <th class="num">Exceso</th>
           <th class="num">Freq.</th>
-          <th class="num">Exceso gasto</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let ad of reducePaged">
           <td class="clickable" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</td>
           <td>{{ ad.campaign_name }}</td>
+          <td><span class="badge" [ngClass]="statusClass(ad.effective_status)">{{ statusLabel(ad.effective_status) }}</span></td>
           <td class="num">{{ fmt(ad.roas_7d) }}x</td>
           <td class="num">{{ fmt(ad.roas_cum) }}x</td>
+          <td class="num" style="color: #6b7280;">{{ fmt(ad.roas_min_applied, 1) }}x</td>
+          <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
+          <td class="num">{{ fmtMoney(ad.value_7d) }}</td>
+          <td class="num" style="color: #fca5a5;">{{ fmtMoney(ad.spend_excess) }}</td>
           <td class="num" [style.color]="ad.frequency_day > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.frequency_day, 1) }}</td>
-          <td class="num">{{ fmtMoney(ad.spend_excess) }}</td>
         </tr>
       </tbody>
     </table>
-    <ng-container *ngIf="reducePages > 1">
-      <ng-container *ngTemplateOutlet="pager; context: { $implicit: reducePage, pages: reducePages, set: 'reduce' }"></ng-container>
-    </ng-container>
-    <p *ngIf="reduceList.length === 0" class="empty">Ning&uacute;n anuncio en esta categor&iacute;a.</p>
+    <div class="pager" *ngIf="reducePages > 1">
+      <button class="pager-btn" [disabled]="reducePage <= 1" (click)="reducePage = reducePage - 1">&lsaquo;</button>
+      <span class="pager-info">{{ reducePage }} / {{ reducePages }}</span>
+      <button class="pager-btn" [disabled]="reducePage >= reducePages" (click)="reducePage = reducePage + 1">&rsaquo;</button>
+    </div>
+    <p *ngIf="reduceList.length === 0" class="empty">Ning&uacute;n anuncio debajo del piso.</p>
   </div>
 
   <!-- SCALE LIST -->
   <div class="card">
     <h2 class="card-title">
       <span class="badge badge-green">Escalar</span>
-      Cumplen piso &mdash; {{ scaleList.length }} anuncios
+      Arriba del piso &mdash; {{ scaleList.length }}
     </h2>
     <table class="data-table" *ngIf="scalePaged.length > 0">
       <thead>
         <tr>
           <th>Anuncio</th>
           <th>Campa&ntilde;a</th>
+          <th>Status</th>
           <th class="num">ROAS 7d</th>
           <th class="num">ROAS acum.</th>
-          <th class="num">Freq.</th>
+          <th class="num">Piso</th>
           <th class="num">Gasto 7d</th>
+          <th class="num">Ingreso 7d</th>
+          <th class="num">Freq.</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let ad of scalePaged">
           <td class="clickable" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</td>
           <td>{{ ad.campaign_name }}</td>
-          <td class="num">{{ fmt(ad.roas_7d) }}x</td>
+          <td><span class="badge" [ngClass]="statusClass(ad.effective_status)">{{ statusLabel(ad.effective_status) }}</span></td>
+          <td class="num" style="color: #86efac;">{{ fmt(ad.roas_7d) }}x</td>
           <td class="num">{{ fmt(ad.roas_cum) }}x</td>
-          <td class="num">{{ fmt(ad.frequency_day, 1) }}</td>
+          <td class="num" style="color: #6b7280;">{{ fmt(ad.roas_min_applied, 1) }}x</td>
           <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
+          <td class="num">{{ fmtMoney(ad.value_7d) }}</td>
+          <td class="num">{{ fmt(ad.frequency_day, 1) }}</td>
         </tr>
       </tbody>
     </table>
-    <ng-container *ngIf="scalePages > 1">
-      <ng-container *ngTemplateOutlet="pager; context: { $implicit: scalePage, pages: scalePages, set: 'scale' }"></ng-container>
-    </ng-container>
-    <p *ngIf="scaleList.length === 0" class="empty">Ning&uacute;n anuncio en esta categor&iacute;a.</p>
+    <div class="pager" *ngIf="scalePages > 1">
+      <button class="pager-btn" [disabled]="scalePage <= 1" (click)="scalePage = scalePage - 1">&lsaquo;</button>
+      <span class="pager-info">{{ scalePage }} / {{ scalePages }}</span>
+      <button class="pager-btn" [disabled]="scalePage >= scalePages" (click)="scalePage = scalePage + 1">&rsaquo;</button>
+    </div>
+    <p *ngIf="scaleList.length === 0" class="empty">Ning&uacute;n anuncio arriba del piso.</p>
   </div>
 </ng-container>
-
-<!-- Pagination template -->
-<ng-template #pager let-current let-pages="pages" let-set="set">
-  <div class="pager">
-    <button class="pager-btn" [disabled]="current <= 1"
-      (click)="set === 'kill' ? killPage = killPage - 1 : set === 'reduce' ? reducePage = reducePage - 1 : scalePage = scalePage - 1">
-      &lsaquo; Anterior
-    </button>
-    <span class="pager-info">{{ current }} / {{ pages }}</span>
-    <button class="pager-btn" [disabled]="current >= pages"
-      (click)="set === 'kill' ? killPage = killPage + 1 : set === 'reduce' ? reducePage = reducePage + 1 : scalePage = scalePage + 1">
-      Siguiente &rsaquo;
-    </button>
-  </div>
-</ng-template>
