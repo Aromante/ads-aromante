@@ -7,19 +7,28 @@ export class AuthService {
   private supa = inject(SupabaseService);
 
   readonly user = signal<User | null>(null);
-  readonly loading = signal(true);
+  readonly ready = signal(false);
+
+  /** Resolves when the initial session check completes */
+  readonly initialized: Promise<void>;
 
   constructor() {
-    // Restore session on init
-    this.supa.client.auth.getSession().then(({ data }) => {
-      this.user.set(data.session?.user ?? null);
-      this.loading.set(false);
-    });
+    this.initialized = this.init();
+  }
 
-    // Listen for auth changes
-    this.supa.client.auth.onAuthStateChange((_event, session) => {
-      this.user.set(session?.user ?? null);
-      this.loading.set(false);
+  private async init() {
+    // Try to restore existing session
+    const { data } = await this.supa.client.auth.getSession();
+    this.user.set(data.session?.user ?? null);
+    this.ready.set(true);
+
+    // Listen for future auth changes (token refresh, sign out, etc.)
+    this.supa.client.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        this.user.set(null);
+      } else if (session?.user) {
+        this.user.set(session.user);
+      }
     });
   }
 

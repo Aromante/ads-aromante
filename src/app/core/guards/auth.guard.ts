@@ -6,17 +6,8 @@ export const authGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for initial session load
-  if (auth.loading()) {
-    await new Promise<void>(resolve => {
-      const check = setInterval(() => {
-        if (!auth.loading()) {
-          clearInterval(check);
-          resolve();
-        }
-      }, 50);
-    });
-  }
+  // Wait for initial session restoration to complete
+  await auth.initialized;
 
   if (auth.isAuthenticated) {
     return true;
