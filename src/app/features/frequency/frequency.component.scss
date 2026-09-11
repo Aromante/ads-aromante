@@ -1,0 +1,33 @@
+.page-desc {
+  color: #6b7280;
+  font-size: 13px;
+  margin: -16px 0 24px;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.matrix-cell {
+  margin-bottom: 0;
+}
+
+.cell-hint {
+  color: #6b7280;
+  font-size: 12px;
+  margin: -4px 0 12px;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 1000px) {
+  .matrix-grid {
+    grid-template-columns: 1fr;
+  }
+}

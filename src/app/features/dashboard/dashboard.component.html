@@ -1,0 +1,123 @@
+<h1 class="page-title">Dashboard de Decisi&oacute;n Diaria <span class="attr-label">7d_click</span></h1>
+
+<div *ngIf="loading" class="loading">Cargando datos...</div>
+<div *ngIf="error" class="error-msg">{{ error }}</div>
+
+<ng-container *ngIf="!loading && !error">
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Anuncios activos</div>
+      <div class="kpi-value">{{ activeAds }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Inversi&oacute;n acumulada</div>
+      <div class="kpi-value">{{ fmtMoney(totalSpend) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Compras</div>
+      <div class="kpi-value">{{ totalPurchases | number }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">ROAS 7d promedio</div>
+      <div class="kpi-value">{{ fmt(avgRoas7d) }}x</div>
+    </div>
+  </div>
+
+  <!-- KILL LIST -->
+  <div class="card">
+    <h2 class="card-title">
+      <span class="badge badge-red">Apagar</span>
+      Gasto &gt; 3&times; CPA sin compras &mdash; {{ killList.length }} anuncios
+    </h2>
+    <table class="data-table" *ngIf="killList.length > 0">
+      <thead>
+        <tr>
+          <th>Anuncio</th>
+          <th>Campa&ntilde;a</th>
+          <th class="num">Gasto acum.</th>
+          <th class="num">Compras</th>
+          <th class="num">Frecuencia 7d</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let ad of killList">
+          <td class="clickable" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</td>
+          <td>{{ ad.campaign_name }}</td>
+          <td class="num">{{ fmtMoney(ad.spend_cum) }}</td>
+          <td class="num">{{ ad.purchases_cum }}</td>
+          <td class="num">{{ fmt(ad.frequency_7d, 1) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="killList.length === 0" style="color: #6b7280; font-size: 13px;">Ning&uacute;n anuncio en esta categor&iacute;a.</p>
+  </div>
+
+  <!-- REDUCE LIST -->
+  <div class="card">
+    <h2 class="card-title">
+      <span class="badge badge-yellow">Reducir</span>
+      M&oacute;vil &lt; acumulada 7+ d&iacute;as o frecuencia &gt; 3.5 &mdash; {{ reduceList.length }} anuncios
+    </h2>
+    <table class="data-table" *ngIf="reduceList.length > 0">
+      <thead>
+        <tr>
+          <th>Anuncio</th>
+          <th>Campa&ntilde;a</th>
+          <th class="num">ROAS 7d</th>
+          <th class="num">ROAS acum.</th>
+          <th class="num">Diff</th>
+          <th class="num">D&iacute;as &lt; acum.</th>
+          <th class="num">Freq. 7d</th>
+          <th class="num">Exceso gasto</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let ad of reduceList">
+          <td class="clickable" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</td>
+          <td>{{ ad.campaign_name }}</td>
+          <td class="num">{{ fmt(ad.roas_7d) }}x</td>
+          <td class="num">{{ fmt(ad.roas_cum) }}x</td>
+          <td class="num" [style.color]="ad.roas_diff < 0 ? '#fca5a5' : '#86efac'">{{ fmt(ad.roas_diff) }}x</td>
+          <td class="num">{{ ad.consecutive_below }}</td>
+          <td class="num" [style.color]="ad.frequency_7d > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.frequency_7d, 1) }}</td>
+          <td class="num">{{ fmtMoney(ad.spend_excess) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="reduceList.length === 0" style="color: #6b7280; font-size: 13px;">Ning&uacute;n anuncio en esta categor&iacute;a.</p>
+  </div>
+
+  <!-- SCALE LIST -->
+  <div class="card">
+    <h2 class="card-title">
+      <span class="badge badge-green">Escalar</span>
+      ROAS &ge; {{ FLOOR_ROAS }}x sostenido, &ge;10 compras, freq. &lt; 3.0 &mdash; {{ scaleList.length }} anuncios
+    </h2>
+    <table class="data-table" *ngIf="scaleList.length > 0">
+      <thead>
+        <tr>
+          <th>Anuncio</th>
+          <th>Campa&ntilde;a</th>
+          <th class="num">ROAS 7d</th>
+          <th class="num">ROAS acum.</th>
+          <th class="num">Compras</th>
+          <th class="num">Freq. 7d</th>
+          <th class="num">Gasto acum.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let ad of scaleList">
+          <td class="clickable" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</td>
+          <td>{{ ad.campaign_name }}</td>
+          <td class="num">{{ fmt(ad.roas_7d) }}x</td>
+          <td class="num">{{ fmt(ad.roas_cum) }}x</td>
+          <td class="num">{{ ad.purchases_cum }}</td>
+          <td class="num">{{ fmt(ad.frequency_7d, 1) }}</td>
+          <td class="num">{{ fmtMoney(ad.spend_cum) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="scaleList.length === 0" style="color: #6b7280; font-size: 13px;">Ning&uacute;n anuncio en esta categor&iacute;a.</p>
+  </div>
+</ng-container>

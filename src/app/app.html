@@ -1,0 +1,36 @@
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo">&#9670;</span>
+      <span class="name">Ads Aromante</span>
+    </div>
+    <nav>
+      <div class="nav-divider"><span>Operaci&oacute;n</span></div>
+      <a routerLink="/dashboard" routerLinkActive="active">
+        <span class="nav-lock" *ngIf="!isUnlocked('meta')">&#128274;</span>Dashboard
+      </a>
+
+      <div class="nav-divider"><span>An&aacute;lisis</span></div>
+      <a routerLink="/attribution" routerLinkActive="active">
+        <span class="nav-lock" *ngIf="!isUnlocked('meta')">&#128274;</span>Atribuci&oacute;n
+      </a>
+      <a routerLink="/maturation" routerLinkActive="active">
+        <span class="nav-lock" *ngIf="!isUnlocked('meta')">&#128274;</span>Maduraci&oacute;n
+      </a>
+      <a routerLink="/frequency" routerLinkActive="active">
+        <span class="nav-lock" *ngIf="!isUnlocked('meta')">&#128274;</span>Frecuencia
+      </a>
+
+      <div class="nav-divider"><span>Sistema</span></div>
+      <a routerLink="/duplicates" routerLinkActive="active">
+        <span class="nav-lock" *ngIf="!isUnlocked('meta')">&#128274;</span>Duplicados
+      </a>
+      <a routerLink="/health" routerLinkActive="active">
+        <span class="nav-lock" *ngIf="!isUnlocked('meta')">&#128274;</span>Salud Ingesta
+      </a>
+    </nav>
+  </aside>
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>

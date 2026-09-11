@@ -1,0 +1,57 @@
+<h1 class="page-title">Curva de Maduraci&oacute;n</h1>
+<p class="page-desc">
+  Mide cu&aacute;nto cambia un d&iacute;a de datos entre lecturas sucesivas.
+  Cuando <code>d&iacute;as_que_cambiaron = 0</code> a partir de cierta edad, se puede confiar en el n&uacute;mero.
+  Necesita ~2 semanas de snapshots acumulados para ser confiable.
+</p>
+
+<div *ngIf="loading" class="loading">Cargando datos de maduraci&oacute;n...</div>
+<div *ngIf="error" class="error-msg">{{ error }}</div>
+
+<ng-container *ngIf="!loading && !error">
+  <div class="kpi-row" *ngIf="stableAfter !== null">
+    <div class="kpi">
+      <div class="kpi-label">Datos estables a partir de</div>
+      <div class="kpi-value" style="color: #86efac;">{{ stableAfter }} d&iacute;as</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Observaciones</div>
+      <div class="kpi-value">{{ rows.length }}</div>
+    </div>
+  </div>
+
+  <div class="card chart-card" *ngIf="rows.length > 0">
+    <div class="chart-container">
+      <canvas #matChart></canvas>
+    </div>
+  </div>
+
+  <div class="card" *ngIf="rows.length > 0">
+    <h2 class="card-title">Detalle por edad</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="num">Edad (d&iacute;as)</th>
+          <th class="num">D&iacute;as comparados</th>
+          <th class="num">D&iacute;as cambiaron</th>
+          <th class="num">Cambio prom. %</th>
+          <th class="num">Cambio m&aacute;x. %</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of rows" [style.color]="r.days_changed === 0 ? '#86efac' : 'inherit'">
+          <td class="num">{{ r.age_days }}</td>
+          <td class="num">{{ r.days_compared }}</td>
+          <td class="num">{{ r.days_changed }}</td>
+          <td class="num">{{ fmt(r.avg_change_pct) }}%</td>
+          <td class="num">{{ fmt(r.max_change_pct) }}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="rows.length === 0" class="card" style="color: #6b7280;">
+    A&uacute;n no hay suficientes snapshots para construir la curva.
+    Necesitas al menos 2 semanas de corridas del cron.
+  </div>
+</ng-container>

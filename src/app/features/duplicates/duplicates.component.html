@@ -1,0 +1,43 @@
+<h1 class="page-title">Detecci&oacute;n de Duplicados</h1>
+<p class="page-desc">
+  Anuncios activos que comparten el mismo <code>creative_base</code> compiten entre s&iacute; en la subasta.
+  Mantener duplicados activos canibaliza el rendimiento.
+</p>
+
+<div *ngIf="loading" class="loading">Analizando dimensiones...</div>
+<div *ngIf="error" class="error-msg">{{ error }}</div>
+
+<ng-container *ngIf="!loading && !error">
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Grupos duplicados</div>
+      <div class="kpi-value" [style.color]="groups.length > 0 ? '#fde047' : '#86efac'">{{ groups.length }}</div>
+    </div>
+  </div>
+
+  <div class="card" *ngFor="let g of groups">
+    <h2 class="card-title">{{ g.creative_base }} &mdash; {{ g.ads.length }} anuncios</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Anuncio</th>
+          <th>Campa&ntilde;a</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let a of g.ads">
+          <td class="clickable" (click)="goToAd(a.ad_id)">{{ a.ad_name }}</td>
+          <td>{{ a.campaign_name }}</td>
+          <td>
+            <span class="badge" [ngClass]="a.status === 'ACTIVE' ? 'badge-green' : 'badge-gray'">{{ a.status }}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="groups.length === 0" class="card" style="color: #86efac;">
+    No se detectaron duplicados activos.
+  </div>
+</ng-container>

@@ -1,0 +1,76 @@
+<h1 class="page-title">Matriz de Diagn&oacute;stico por Frecuencia <span class="attr-label">7d_click</span></h1>
+<p class="page-desc">
+  Frecuencia calculada sobre ventana m&oacute;vil de 7 d&iacute;as. Umbral: {{ FREQ_THRESHOLD }}.
+  Solo anuncios con &ge;7 d&iacute;as maduros.
+</p>
+
+<div *ngIf="loading" class="loading">Analizando frecuencias...</div>
+<div *ngIf="error" class="error-msg">{{ error }}</div>
+
+<ng-container *ngIf="!loading && !error">
+  <div class="matrix-grid">
+    <!-- Sustain: high freq + ROAS stable/up -->
+    <div class="card matrix-cell">
+      <h2 class="card-title">
+        <span class="badge badge-yellow">Sostener</span>
+        Freq. alta + ROAS estable &mdash; {{ sustain.length }}
+      </h2>
+      <p class="cell-hint">Tener variante lista para rotar.</p>
+      <ng-container *ngTemplateOutlet="adTable; context: { $implicit: sustain }"></ng-container>
+    </div>
+
+    <!-- Fatigue: high freq + ROAS down -->
+    <div class="card matrix-cell">
+      <h2 class="card-title">
+        <span class="badge badge-red">Fatiga</span>
+        Freq. alta + ROAS bajando &mdash; {{ fatigue.length }}
+      </h2>
+      <p class="cell-hint">Rotar creativo urgente.</p>
+      <ng-container *ngTemplateOutlet="adTable; context: { $implicit: fatigue }"></ng-container>
+    </div>
+
+    <!-- Scale: low freq + ROAS stable/up -->
+    <div class="card matrix-cell">
+      <h2 class="card-title">
+        <span class="badge badge-green">Escalar</span>
+        Freq. baja + ROAS estable &mdash; {{ scale.length }}
+      </h2>
+      <p class="cell-hint">Hay espacio para crecer presupuesto.</p>
+      <ng-container *ngTemplateOutlet="adTable; context: { $implicit: scale }"></ng-container>
+    </div>
+
+    <!-- Fix: low freq + ROAS down -->
+    <div class="card matrix-cell">
+      <h2 class="card-title">
+        <span class="badge badge-gray">Revisar</span>
+        Freq. baja + ROAS bajando &mdash; {{ fix.length }}
+      </h2>
+      <p class="cell-hint">No es fatiga. Revisar oferta o landing.</p>
+      <ng-container *ngTemplateOutlet="adTable; context: { $implicit: fix }"></ng-container>
+    </div>
+  </div>
+</ng-container>
+
+<ng-template #adTable let-ads>
+  <table class="data-table" *ngIf="ads.length > 0">
+    <thead>
+      <tr>
+        <th>Anuncio</th>
+        <th class="num">Freq. 7d</th>
+        <th class="num">ROAS 7d</th>
+        <th>Tendencia</th>
+        <th class="num">Compras</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let a of ads">
+        <td class="clickable" (click)="goToAd(a.ad_id)">{{ a.ad_name }}</td>
+        <td class="num">{{ fmt(a.frequency_7d, 1) }}</td>
+        <td class="num">{{ fmt(a.roas_7d) }}x</td>
+        <td [style.color]="trendColor(a.roas_trend)">{{ trendLabel(a.roas_trend) }}</td>
+        <td class="num">{{ a.purchases }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p *ngIf="ads.length === 0" style="color: #6b7280; font-size: 13px;">Ning&uacute;n anuncio.</p>
+</ng-template>

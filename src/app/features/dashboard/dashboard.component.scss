@@ -1,0 +1,7 @@
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .badge { flex-shrink: 0; }
+}

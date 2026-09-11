@@ -1,0 +1,25 @@
+.back-link {
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 16px;
+  &:hover { color: #f3f4f6; }
+}
+
+.subtitle {
+  color: #6b7280;
+  font-size: 13px;
+  margin: -16px 0 24px;
+}
+
+.chart-container {
+  height: 400px;
+  position: relative;
+}
+
+.alert-card {
+  background: #2d1111;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+  font-size: 13px;
+}

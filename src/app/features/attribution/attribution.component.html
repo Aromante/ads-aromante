@@ -1,0 +1,37 @@
+<h1 class="page-title">Comparador de Ventanas de Atribuci&oacute;n</h1>
+<p class="page-desc">
+  Las tres ventanas NO son subconjuntos entre s&iacute;. <code>1d_click &sub; 7d_click</code>, pero <code>1d_view</code> es un grupo disjunto.
+  La columna "Dep. vista" mide qu&eacute; % del ingreso de <code>7d_click</code> NO est&aacute; en <code>1d_click</code>.
+</p>
+
+<div *ngIf="loading" class="loading">Cargando datos de atribuci&oacute;n...</div>
+<div *ngIf="error" class="error-msg">{{ error }}</div>
+
+<div class="card" *ngIf="!loading && !error">
+  <div style="max-height: 600px; overflow-y: auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th (click)="sort('ad_name')">Anuncio</th>
+          <th class="num" (click)="sort('spend')">Gasto</th>
+          <th class="num" (click)="sort('roas_7d_click')">ROAS 7d_click</th>
+          <th class="num" (click)="sort('roas_1d_click')">ROAS 1d_click</th>
+          <th class="num" (click)="sort('roas_1d_view')">ROAS 1d_view</th>
+          <th class="num" (click)="sort('view_dependency')">Dep. vista</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of rows">
+          <td class="clickable" (click)="goToAd(r.ad_id)">{{ r.ad_name }}</td>
+          <td class="num">{{ fmtMoney(r.spend) }}</td>
+          <td class="num">{{ fmt(r.roas_7d_click) }}x</td>
+          <td class="num">{{ fmt(r.roas_1d_click) }}x</td>
+          <td class="num">{{ fmt(r.roas_1d_view) }}x</td>
+          <td class="num" [style.color]="r.view_dependency > 50 ? '#fde047' : r.view_dependency > 80 ? '#fca5a5' : 'inherit'">
+            {{ fmtPct(r.view_dependency) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
