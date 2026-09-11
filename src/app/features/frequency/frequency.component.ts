@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { CacheService } from '../../core/services/cache.service';
 import { AdLifecycle, AdDim } from '../../core/models/meta.models';
 
 type Quadrant = 'sustain' | 'fatigue' | 'scale' | 'fix';
@@ -26,6 +27,7 @@ interface FrequencyAd {
 })
 export class FrequencyComponent implements OnInit {
   private supa = inject(SupabaseService);
+  private cache = inject(CacheService);
   private router = inject(Router);
 
   loading = true;
@@ -40,16 +42,25 @@ export class FrequencyComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      const [rows, dims] = await Promise.all([
-        this.supa.selectWithFilter<AdLifecycle>(
-          'meta_ad_lifecycle', '*',
-          q => q.eq('matured', true).order('ad_id').order('ad_day', { ascending: true })
-        ),
-        this.supa.selectWithFilter<AdDim>(
-          'meta_ads_dim', 'ad_id,ad_name',
-          q => q.is('valid_to', null)
-        )
-      ]);
+      let rows = this.cache.get<AdLifecycle[]>('lifecycle_matured');
+      let dims = this.cache.get<AdDim[]>('dims_current');
+
+      if (!rows || !dims) {
+        const [r, d] = await Promise.all([
+          this.supa.selectWithFilter<AdLifecycle>(
+            'meta_ad_lifecycle', '*',
+            q => q.eq('matured', true).order('ad_id').order('ad_day', { ascending: true })
+          ),
+          this.supa.selectWithFilter<AdDim>(
+            'meta_ads_dim', 'ad_id,ad_name',
+            q => q.is('valid_to', null)
+          )
+        ]);
+        rows = r;
+        dims = d;
+        this.cache.set('lifecycle_matured', rows);
+        this.cache.set('dims_current', dims);
+      }
 
       const nameMap = new Map(dims.map(d => [d.ad_id, d.ad_name]));
 

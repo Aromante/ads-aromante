@@ -1,7 +1,9 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { CacheService } from '../../core/services/cache.service';
 import { InsightDaily } from '../../core/models/meta.models';
 
 interface AttrRow {
@@ -17,23 +19,42 @@ interface AttrRow {
 @Component({
   selector: 'app-attribution',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './attribution.component.html',
   styleUrl: './attribution.component.scss'
 })
 export class AttributionComponent implements OnInit {
   private supa = inject(SupabaseService);
+  private cache = inject(CacheService);
   private router = inject(Router);
 
   loading = true;
   error = '';
-  rows: AttrRow[] = [];
+  allRows: AttrRow[] = [];
+  search = '';
+  page = 1;
+  readonly PAGE_SIZE = 20;
   sortField = 'view_dependency';
   sortDir: 'asc' | 'desc' = 'desc';
 
+  get rows(): AttrRow[] {
+    if (!this.search) return this.allRows;
+    const q = this.search.toLowerCase();
+    return this.allRows.filter(r => r.ad_name.toLowerCase().includes(q));
+  }
+  get paged(): AttrRow[] {
+    return this.rows.slice((this.page - 1) * this.PAGE_SIZE, this.page * this.PAGE_SIZE);
+  }
+  get pages(): number { return Math.ceil(this.rows.length / this.PAGE_SIZE); }
+  onSearch() { this.page = 1; }
+
   async ngOnInit() {
     try {
-      const raw = await this.supa.select<InsightDaily>('meta_ads_daily_final');
+      let raw = this.cache.get<InsightDaily[]>('daily_final');
+      if (!raw) {
+        raw = await this.supa.select<InsightDaily>('meta_ads_daily_final');
+        this.cache.set('daily_final', raw);
+      }
 
       const byAd = new Map<string, { windows: Record<string, { spend: number; revenue: number }> }>();
 
@@ -55,7 +76,7 @@ export class AttributionComponent implements OnInit {
       );
       const nameMap = new Map(dims.map((d: any) => [d.ad_id, d.ad_name]));
 
-      this.rows = [];
+      this.allRows = [];
       for (const [adId, data] of byAd) {
         const w7c = data.windows['7d_click'] ?? { spend: 0, revenue: 0 };
         const w1c = data.windows['1d_click'] ?? { spend: 0, revenue: 0 };
@@ -68,7 +89,7 @@ export class AttributionComponent implements OnInit {
         const roas1v = w1v.spend > 0 ? w1v.revenue / w1v.spend : 0;
         const viewDep = w7c.revenue > 0 ? ((w7c.revenue - w1c.revenue) / w7c.revenue) * 100 : 0;
 
-        this.rows.push({
+        this.allRows.push({
           ad_id: adId,
           ad_name: nameMap.get(adId) ?? adId,
           roas_7d_click: roas7c,
@@ -94,7 +115,7 @@ export class AttributionComponent implements OnInit {
       this.sortDir = 'desc';
     }
     const dir = this.sortDir === 'asc' ? 1 : -1;
-    this.rows.sort((a: any, b: any) => ((a[field] ?? 0) - (b[field] ?? 0)) * dir);
+    this.allRows.sort((a: any, b: any) => ((a[field] ?? 0) - (b[field] ?? 0)) * dir);
   }
 
   goToAd(adId: string) { this.router.navigate(['/ad', adId]); }

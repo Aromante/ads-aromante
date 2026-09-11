@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { CacheService } from '../../core/services/cache.service';
 import { SyncRun, ApiBudget } from '../../core/models/meta.models';
 
 @Component({
@@ -12,6 +13,7 @@ import { SyncRun, ApiBudget } from '../../core/models/meta.models';
 })
 export class HealthComponent implements OnInit {
   private supa = inject(SupabaseService);
+  private cache = inject(CacheService);
 
   loading = true;
   error = '';
@@ -21,16 +23,25 @@ export class HealthComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      const [runs, budget] = await Promise.all([
-        this.supa.selectWithFilter<SyncRun>(
-          'meta_ads_sync_runs', '*',
-          q => q.order('started_at', { ascending: false }).limit(20)
-        ),
-        this.supa.selectWithFilter<ApiBudget>(
-          'meta_api_budget', '*',
-          q => q.order('dia_mzt', { ascending: false }).limit(14)
-        )
-      ]);
+      let runs = this.cache.get<SyncRun[]>('sync_runs');
+      let budget = this.cache.get<ApiBudget[]>('api_budget');
+
+      if (!runs || !budget) {
+        const [r, b] = await Promise.all([
+          this.supa.selectWithFilter<SyncRun>(
+            'meta_ads_sync_runs', '*',
+            q => q.order('started_at', { ascending: false }).limit(20)
+          ),
+          this.supa.selectWithFilter<ApiBudget>(
+            'meta_api_budget', '*',
+            q => q.order('dia_mzt', { ascending: false }).limit(14)
+          )
+        ]);
+        runs = r;
+        budget = b;
+        this.cache.set('sync_runs', runs);
+        this.cache.set('api_budget', budget);
+      }
 
       this.runs = runs;
       this.budget = budget;

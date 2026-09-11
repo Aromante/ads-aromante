@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { CacheService } from '../../core/services/cache.service';
 import { AdDim } from '../../core/models/meta.models';
 
 interface DuplicateGroup {
@@ -18,6 +19,7 @@ interface DuplicateGroup {
 })
 export class DuplicatesComponent implements OnInit {
   private supa = inject(SupabaseService);
+  private cache = inject(CacheService);
   private router = inject(Router);
 
   loading = true;
@@ -26,11 +28,15 @@ export class DuplicatesComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      const dims = await this.supa.selectWithFilter<AdDim>(
-        'meta_ads_dim',
-        'ad_id,ad_name,campaign_name,creative_base,effective_status',
-        q => q.is('valid_to', null)
-      );
+      let dims = this.cache.get<AdDim[]>('dims_full');
+      if (!dims) {
+        dims = await this.supa.selectWithFilter<AdDim>(
+          'meta_ads_dim',
+          'ad_id,ad_name,campaign_name,creative_base,effective_status',
+          q => q.is('valid_to', null)
+        );
+        this.cache.set('dims_full', dims);
+      }
 
       const byBase = new Map<string, DuplicateGroup>();
       for (const d of dims) {

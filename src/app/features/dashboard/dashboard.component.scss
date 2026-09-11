@@ -2,8 +2,68 @@
   display: flex;
   align-items: center;
   gap: 10px;
-
   .badge { flex-shrink: 0; }
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.search-input {
+  flex: 1;
+  max-width: 400px;
+  padding: 10px 14px;
+  background: #12122a;
+  border: 1px solid #2d2d52;
+  border-radius: 8px;
+  color: #f3f4f6;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &::placeholder { color: #4b5563; }
+  &:focus { border-color: #f97316; }
+}
+
+.search-count {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.empty {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 0 4px;
+}
+
+.pager-btn {
+  background: none;
+  border: 1px solid #2d2d52;
+  color: #9ca3af;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) { color: #f3f4f6; border-color: #f97316; }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+}
+
+.pager-info {
+  font-size: 12px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 .passkey-banner {

@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { CacheService } from '../../core/services/cache.service';
 import { MaturationObserved } from '../../core/models/meta.models';
 import { Chart, registerables } from 'chart.js';
 
@@ -15,6 +16,7 @@ Chart.register(...registerables);
 })
 export class MaturationComponent implements OnInit {
   private supa = inject(SupabaseService);
+  private cache = inject(CacheService);
 
   @ViewChild('matChart') chartRef!: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
@@ -26,10 +28,14 @@ export class MaturationComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      this.rows = await this.supa.selectWithFilter<MaturationObserved>(
-        'meta_maturation_observed', '*',
-        q => q.order('edad_al_leer', { ascending: true })
-      );
+      this.rows = this.cache.get<MaturationObserved[]>('maturation') ?? [];
+      if (this.rows.length === 0) {
+        this.rows = await this.supa.selectWithFilter<MaturationObserved>(
+          'meta_maturation_observed', '*',
+          q => q.order('edad_al_leer', { ascending: true })
+        );
+        this.cache.set('maturation', this.rows);
+      }
 
       for (const r of this.rows) {
         if (r.edad_al_leer > 0 && r.dias_que_cambiaron === 0) {
