@@ -28,9 +28,12 @@ export class AuthService {
   }
 
   async sendMagicLink(email: string): Promise<{ error: string | null }> {
+    if (!email.endsWith('@aromante.mx')) {
+      return { error: 'Solo emails @aromante.mx pueden acceder' };
+    }
     const { error } = await this.supa.client.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: false }
+      options: { shouldCreateUser: true }
     });
     if (error) return { error: error.message };
     return { error: null };
