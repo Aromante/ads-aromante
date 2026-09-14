@@ -43,7 +43,7 @@ export class AdDetailComponent implements OnInit, AfterViewInit {
     try {
       const [lifecycle, dims] = await Promise.all([
         this.supa.selectWithFilter<AdLifecycle>(
-          'meta_ad_lifecycle', '*',
+          'meta_ad_lifecycle_mat', '*',
           q => q.eq('ad_id', this.adId).order('ad_day', { ascending: true })
         ),
         this.supa.selectWithFilter<AdDim>(

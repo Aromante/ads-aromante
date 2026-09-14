@@ -85,7 +85,7 @@ export class DashboardComponent implements OnInit {
     try {
       let rows = this.cache.get<FloorCompliance[]>('floor_compliance');
       if (!rows) {
-        rows = await this.supa.select<FloorCompliance>('meta_floor_compliance');
+        rows = await this.supa.select<FloorCompliance>('meta_floor_compliance_mat');
         this.cache.set('floor_compliance', rows);
       }
 

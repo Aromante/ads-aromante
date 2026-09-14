@@ -48,7 +48,7 @@ export class FrequencyComponent implements OnInit {
       if (!rows || !dims) {
         const [r, d] = await Promise.all([
           this.supa.selectWithFilter<AdLifecycle>(
-            'meta_ad_lifecycle', '*',
+            'meta_ad_lifecycle_mat', '*',
             q => q.eq('matured', true).order('ad_id').order('ad_day', { ascending: true })
           ),
           this.supa.selectWithFilter<AdDim>(
