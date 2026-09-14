@@ -61,16 +61,16 @@ export class AdDetailComponent implements OnInit, AfterViewInit {
 
       if (this.rows.length > 0) {
         const last = this.rows[this.rows.length - 1];
-        this.totalSpend = last.spend_cum;
-        this.totalPurchases = last.purchases_cum;
-        this.roasCum = last.roas_cum;
-        this.roas7d = last.roas_7d;
-        this.maxDay = last.ad_day;
-        this.currentFreq = last.frequency_day;
+        this.totalSpend = last.spend_cum ?? 0;
+        this.totalPurchases = last.purchases_cum ?? 0;
+        this.roasCum = last.roas_cum ?? 0;
+        this.roas7d = last.roas_7d ?? 0;
+        this.maxDay = last.ad_day ?? 0;
+        this.currentFreq = last.frequency_day ?? 0;
 
         for (let i = 7; i < this.rows.length; i++) {
           const r = this.rows[i];
-          if (r.roas_7d > 0 && r.roas_7d < r.roas_cum) {
+          if ((r.roas_7d ?? 0) > 0 && (r.roas_7d ?? 0) < (r.roas_cum ?? 0)) {
             this.crossoverDay = r.ad_day;
             break;
           }
@@ -91,9 +91,9 @@ export class AdDetailComponent implements OnInit, AfterViewInit {
     if (!this.chartRef || this.rows.length === 0) return;
 
     const labels = this.rows.map(r => r.ad_day);
-    const spendData = this.rows.map(r => r.spend_day);
-    const roasCum = this.rows.map(r => r.roas_cum);
-    const roas7d = this.rows.map(r => r.roas_7d);
+    const spendData = this.rows.map(r => r.spend_day ?? 0);
+    const roasCum = this.rows.map(r => r.roas_cum ?? 0);
+    const roas7d = this.rows.map(r => r.roas_7d ?? 0);
 
     this.chart = new Chart(this.chartRef.nativeElement, {
       type: 'line',
@@ -184,11 +184,13 @@ export class AdDetailComponent implements OnInit, AfterViewInit {
 
   goBack() { this.router.navigate(['/dashboard']); }
 
-  fmt(n: number, decimals = 2): string {
+  fmt(n: number | null | undefined, decimals = 2): string {
+    if (n == null) return '—';
     return n.toLocaleString('es-MX', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
 
-  fmtMoney(n: number): string {
+  fmtMoney(n: number | null | undefined): string {
+    if (n == null) return '—';
     return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   }
 }
