@@ -37,13 +37,19 @@ export class AdDetailComponent implements OnInit {
   campaignName = '';
   rows: AdLifecycle[] = [];
 
+  // KPIs
   totalSpend = 0;
   totalPurchases = 0;
   roasCum = 0;
   roas7d = 0;
+  cpaCum = 0;
+  cpa7d = 0;
+  aovCum = 0;
+  aov7d = 0;
   maxDay = 0;
   currentFreq = 0;
   crossoverDay: number | null = null;
+  immatureStart: number | null = null;
 
   async ngOnInit() {
     this.adId = this.route.snapshot.paramMap.get('adId') ?? '';
@@ -73,13 +79,33 @@ export class AdDetailComponent implements OnInit {
         this.totalPurchases = last.purchases_cum ?? 0;
         this.roasCum = last.roas_cum ?? 0;
         this.roas7d = last.roas_7d ?? 0;
+        this.cpaCum = last.cpa_cum ?? 0;
+        this.cpa7d = last.cpa_7d ?? 0;
         this.maxDay = last.ad_day ?? 0;
         this.currentFreq = last.frequency_day ?? 0;
 
+        // AOV = value / purchases
+        const valueCum = last.value_cum ?? 0;
+        this.aovCum = this.totalPurchases > 0 ? valueCum / this.totalPurchases : 0;
+        const value7d = last.value_7d ?? 0;
+        const purchases7d = last.purchases_7d ?? 0;
+        this.aov7d = purchases7d > 0 ? value7d / purchases7d : 0;
+
+        // Find crossover
         for (let i = 7; i < this.rows.length; i++) {
           const r = this.rows[i];
           if ((r.roas_7d ?? 0) > 0 && (r.roas_7d ?? 0) < (r.roas_cum ?? 0)) {
             this.crossoverDay = r.ad_day;
+            break;
+          }
+        }
+
+        // Find where immature data starts
+        for (let i = this.rows.length - 1; i >= 0; i--) {
+          if (this.rows[i].matured) {
+            if (i < this.rows.length - 1) {
+              this.immatureStart = this.rows[i + 1].ad_day;
+            }
             break;
           }
         }
@@ -99,8 +125,40 @@ export class AdDetailComponent implements OnInit {
     const roasCum = this.rows.map(r => r.roas_cum ?? 0);
     const roas7d = this.rows.map(r => r.roas_7d ?? 0);
 
+    // Background colors for spend bars: gray for immature, orange for matured
+    const spendBg = this.rows.map(r =>
+      r.matured ? 'rgba(249,115,22,0.18)' : 'rgba(107,114,128,0.12)'
+    );
+
+    // Create immature zone annotation via a plugin
+    const immatureStartIdx = this.immatureStart !== null
+      ? labels.indexOf(this.immatureStart)
+      : -1;
+
+    const immaturePlugin = {
+      id: 'immatureZone',
+      beforeDraw: (chart: any) => {
+        if (immatureStartIdx < 0) return;
+        const { ctx, chartArea, scales } = chart;
+        const xStart = scales.x.getPixelForValue(immatureStartIdx);
+        const xEnd = chartArea.right;
+        ctx.save();
+        ctx.fillStyle = 'rgba(107, 114, 128, 0.08)';
+        ctx.fillRect(xStart, chartArea.top, xEnd - xStart, chartArea.bottom - chartArea.top);
+        // Dashed vertical line at start of immature zone
+        ctx.strokeStyle = 'rgba(107, 114, 128, 0.4)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(xStart, chartArea.top);
+        ctx.lineTo(xStart, chartArea.bottom);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
+
     this.chart = new Chart(this.canvasEl, {
       type: 'line',
+      plugins: [immaturePlugin],
       data: {
         labels,
         datasets: [
@@ -108,7 +166,7 @@ export class AdDetailComponent implements OnInit {
             type: 'bar',
             label: 'Gasto diario',
             data: spendData,
-            backgroundColor: this.rows.map(r => r.matured ? 'rgba(249,115,22,0.15)' : 'rgba(249,115,22,0.05)'),
+            backgroundColor: spendBg,
             borderColor: 'transparent',
             yAxisID: 'spend',
             order: 3
@@ -130,7 +188,7 @@ export class AdDetailComponent implements OnInit {
             data: roas7d,
             borderColor: '#f97316',
             borderWidth: 2,
-            borderDash: [6, 3],
+            borderDash: [8, 4],
             pointRadius: 0,
             tension: 0.3,
             yAxisID: 'roas',
