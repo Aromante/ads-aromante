@@ -19,8 +19,16 @@ export class AdDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
-  @ViewChild('lifecycleChart') chartRef!: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
+  private canvasEl?: HTMLCanvasElement;
+
+  @ViewChild('lifecycleChart')
+  set chartRef(ref: ElementRef<HTMLCanvasElement> | undefined) {
+    if (ref && !this.chart && this.rows.length > 0) {
+      this.canvasEl = ref.nativeElement;
+      this.buildChart();
+    }
+  }
 
   loading = true;
   error = '';
@@ -80,20 +88,18 @@ export class AdDetailComponent implements OnInit {
       this.error = e.message ?? 'Error loading ad';
     } finally {
       this.loading = false;
-      // Wait for Angular to render the canvas after loading=false
-      setTimeout(() => this.buildChart(), 50);
     }
   }
 
   private buildChart() {
-    if (!this.chartRef || this.rows.length === 0) return;
+    if (!this.canvasEl || this.rows.length === 0) return;
 
     const labels = this.rows.map(r => r.ad_day);
     const spendData = this.rows.map(r => r.spend_day ?? 0);
     const roasCum = this.rows.map(r => r.roas_cum ?? 0);
     const roas7d = this.rows.map(r => r.roas_7d ?? 0);
 
-    this.chart = new Chart(this.chartRef.nativeElement, {
+    this.chart = new Chart(this.canvasEl, {
       type: 'line',
       data: {
         labels,
