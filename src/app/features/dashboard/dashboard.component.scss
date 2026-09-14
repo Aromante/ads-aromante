@@ -1,15 +1,9 @@
-.card-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  .badge { flex-shrink: 0; }
-}
-
-.filters-row {
+/* Top bar */
+.top-bar {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
@@ -29,25 +23,15 @@
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s;
   white-space: nowrap;
-
   &:hover { color: #9ca3af; }
-  &.active {
-    background: #1e1e3e;
-    color: #f3f4f6;
-  }
+  &.active { background: #1e1e3e; color: #f3f4f6; }
 }
-
-.tab-count {
-  font-size: 11px;
-  opacity: 0.6;
-  margin-left: 4px;
-}
+.tab-n { font-size: 11px; opacity: 0.5; margin-left: 4px; }
 
 .search-input {
   flex: 1;
-  max-width: 360px;
+  max-width: 300px;
   padding: 8px 14px;
   background: #12122a;
   border: 1px solid #2d2d52;
@@ -59,14 +43,137 @@
   &:focus { border-color: #f97316; }
 }
 
-.empty { color: #6b7280; font-size: 13px; }
+.result-count { font-size: 12px; color: #6b7280; white-space: nowrap; }
 
+/* KPI strip */
+.kpi-strip {
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px;
+  background: #0f0f24;
+  border: 1px solid #1e1e3e;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.kpi-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+.kpi-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi-val { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Ads table */
+.ads-table-wrap {
+  overflow-x: auto;
+  background: #12122a;
+  border: 1px solid #1e1e3e;
+  border-radius: 10px;
+}
+
+.ads-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ads-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid #1e1e3e;
+  cursor: pointer;
+  user-select: none;
+  position: sticky;
+  top: 0;
+  background: #12122a;
+  &:hover { color: #f3f4f6; }
+}
+
+.ads-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #0f0f24;
+}
+
+.ads-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ads-table th.num { text-align: right; }
+
+.ads-table tr:hover td { background: #14142a; }
+
+/* Row compliance colors */
+.row-compliant td:first-child { border-left: 3px solid #22c55e; }
+.row-reduce td:first-child { border-left: 3px solid #eab308; }
+.row-kill td:first-child { border-left: 3px solid #ef4444; }
+
+/* Ad name cell */
+.col-name { min-width: 240px; }
+
+.ad-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ad-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #1a1a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &.placeholder {
+    color: #4b5563;
+    font-size: 14px;
+  }
+}
+
+.ad-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ad-link {
+  color: #f97316;
+  cursor: pointer;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  &:hover { text-decoration: underline; }
+}
+
+.ad-campaign {
+  font-size: 11px;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Pager */
 .pager {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 12px 0 4px;
+  padding: 16px 0;
 }
 
 .pager-btn {
@@ -81,30 +188,29 @@
   &:hover:not(:disabled) { color: #f3f4f6; border-color: #f97316; }
   &:disabled { opacity: 0.3; cursor: not-allowed; }
 }
-
 .pager-info { font-size: 12px; color: #6b7280; }
 
+/* Passkey */
 .passkey-banner {
   background: #1a1a3a;
   border: 1px solid #f97316;
   border-radius: 10px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
+  font-size: 13px;
 }
-.passkey-banner-text { flex: 1; font-size: 13px; color: #f3f4f6; min-width: 200px; }
+.passkey-banner-text { flex: 1; }
 .passkey-banner-actions { display: flex; gap: 8px; }
-.passkey-register-btn {
+.pk-btn {
   background: #f97316; color: #fff; border: none; border-radius: 6px;
-  padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
   &:hover:not(:disabled) { background: #ea580c; }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &:disabled { opacity: 0.6; }
 }
-.passkey-dismiss-btn {
-  background: none; border: 1px solid #2d2d52; color: #6b7280;
-  border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer;
-  &:hover { color: #9ca3af; border-color: #4b5563; }
+.pk-dismiss {
+  background: none; border: none; color: #6b7280; font-size: 12px; cursor: pointer;
+  &:hover { color: #9ca3af; }
 }

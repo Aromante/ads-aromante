@@ -1,4 +1,4 @@
-/** Row from meta_ad_lifecycle view */
+/** Row from meta_ad_lifecycle_mat */
 export interface AdLifecycle {
   ad_id: string;
   date: string;
@@ -21,7 +21,7 @@ export interface AdLifecycle {
   cpa_7d: number;
 }
 
-/** Row from meta_floor_compliance view */
+/** Row from meta_floor_compliance_mat */
 export interface FloorCompliance {
   ad_id: string;
   ad_name: string;
@@ -39,6 +39,34 @@ export interface FloorCompliance {
   roas_min_applied: number;
   spend_excess: number;
   compliant: boolean;
+}
+
+/** Row from meta_dashboard_mat — enriched for the dashboard */
+export interface DashboardAd {
+  ad_id: string;
+  ad_name: string;
+  campaign_name: string;
+  effective_status: string;
+  objective: string;
+  compliant: boolean;
+  roas_min_applied: number;
+  spend_7d: number;
+  value_7d: number;
+  roas_7d: number;
+  roas_cum: number;
+  spend_excess: number;
+  frequency_day: number;
+  purchases_cum: number;
+  purchases_7d: number;
+  cpa_cum: number;
+  cpa_7d: number;
+  value_cum: number;
+  spend_cum: number;
+  aov_cum: number | null;
+  aov_7d: number | null;
+  ctr_7d: number;
+  freq_recent: number;
+  creative_id: string | null;
 }
 
 /** Row from meta_ads_daily_final view */
@@ -80,6 +108,7 @@ export interface AdDim {
   campaign_name: string;
   adset_name: string;
   creative_base: string;
+  creative_id: string;
   effective_status: string;
   valid_from: string;
   valid_to: string | null;
@@ -107,15 +136,4 @@ export interface ApiBudget {
   llamadas: number;
   pico_uso_pct: number;
   bloqueo_min: number;
-}
-
-/** Row from meta_campaigns table */
-export interface Campaign {
-  campaign_id: string;
-  campaign_name: string;
-  objective: string;
-  is_cbo: boolean;
-  bid_strategy: string;
-  role: string | null;
-  role_confirmed: boolean;
 }

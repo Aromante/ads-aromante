@@ -1,28 +1,14 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
 import { CacheService } from '../../core/services/cache.service';
 import { PasskeyService } from '../../core/services/passkey.service';
-import { FloorCompliance } from '../../core/models/meta.models';
-
-interface DecisionAd {
-  ad_id: string;
-  ad_name: string;
-  campaign_name: string;
-  effective_status: string;
-  roas_7d: number;
-  roas_cum: number;
-  roas_min_applied: number;
-  frequency_day: number;
-  spend_excess: number;
-  spend_7d: number;
-  value_7d: number;
-  compliant: boolean;
-}
+import { DashboardAd } from '../../core/models/meta.models';
 
 type StatusFilter = 'all' | 'active' | 'paused';
+type SortDir = 'asc' | 'desc';
 
 @Component({
   selector: 'app-dashboard',
@@ -44,70 +30,51 @@ export class DashboardComponent implements OnInit {
   loading = true;
   error = '';
 
-  private allAds: DecisionAd[] = [];
+  private allAds: DashboardAd[] = [];
 
   // Filters
   search = signal('');
   statusFilter = signal<StatusFilter>('active');
 
-  // Counts by status
+  // Sort
+  sortField = 'spend_7d';
+  sortDir: SortDir = 'desc';
+
+  // Counts
   activeCount = 0;
   pausedCount = 0;
 
-  // KPIs (computed from filtered)
-  totalAds = 0;
-  compliantCount = 0;
-  nonCompliantCount = 0;
-  avgRoas7d = 0;
-  totalSpend7d = 0;
-  totalValue7d = 0;
+  // KPIs
+  totalSpend = 0;
+  totalValue = 0;
+  totalPurchases = 0;
+  blendedRoas = 0;
+  blendedCpa = 0;
   totalExcess = 0;
 
-  // Filtered + classified
-  killList: DecisionAd[] = [];
-  reduceList: DecisionAd[] = [];
-  scaleList: DecisionAd[] = [];
+  // Filtered + sorted
+  filteredAds: DashboardAd[] = [];
 
   // Pagination
-  killPage = 1;
-  reducePage = 1;
-  scalePage = 1;
-  readonly PAGE_SIZE = 20;
+  page = 1;
+  readonly PAGE_SIZE = 25;
 
-  get killPaged(): DecisionAd[] { return this.paginate(this.killList, this.killPage); }
-  get reducePaged(): DecisionAd[] { return this.paginate(this.reduceList, this.reducePage); }
-  get scalePaged(): DecisionAd[] { return this.paginate(this.scaleList, this.scalePage); }
-  get killPages(): number { return Math.ceil(this.killList.length / this.PAGE_SIZE); }
-  get reducePages(): number { return Math.ceil(this.reduceList.length / this.PAGE_SIZE); }
-  get scalePages(): number { return Math.ceil(this.scaleList.length / this.PAGE_SIZE); }
+  get paged(): DashboardAd[] {
+    return this.filteredAds.slice((this.page - 1) * this.PAGE_SIZE, this.page * this.PAGE_SIZE);
+  }
+  get pages(): number { return Math.ceil(this.filteredAds.length / this.PAGE_SIZE); }
 
   async ngOnInit() {
     try {
-      let rows = this.cache.get<FloorCompliance[]>('floor_compliance');
+      let rows = this.cache.get<DashboardAd[]>('dashboard_mat');
       if (!rows) {
-        rows = await this.supa.select<FloorCompliance>('meta_floor_compliance_mat');
-        this.cache.set('floor_compliance', rows);
+        rows = await this.supa.select<DashboardAd>('meta_dashboard_mat');
+        this.cache.set('dashboard_mat', rows);
       }
 
-      // Build allAds
-      this.allAds = rows.map(r => ({
-        ad_id: r.ad_id,
-        ad_name: r.ad_name,
-        campaign_name: r.campaign_name,
-        effective_status: r.effective_status ?? 'UNKNOWN',
-        roas_7d: r.roas_7d,
-        roas_cum: r.roas_cum,
-        roas_min_applied: r.roas_min_applied,
-        frequency_day: r.frequency_day,
-        spend_excess: r.spend_excess,
-        spend_7d: r.spend_7d,
-        value_7d: r.value_7d,
-        compliant: r.compliant
-      }));
-
-      this.activeCount = this.allAds.filter(a => a.effective_status === 'ACTIVE').length;
-      this.pausedCount = this.allAds.length - this.activeCount;
-
+      this.allAds = rows;
+      this.activeCount = rows.filter(a => a.effective_status === 'ACTIVE').length;
+      this.pausedCount = rows.length - this.activeCount;
       this.applyFilters();
 
       if (window.PublicKeyCredential) {
@@ -122,59 +89,50 @@ export class DashboardComponent implements OnInit {
   }
 
   applyFilters() {
-    let filtered = this.allAds;
+    let list = this.allAds;
 
-    // Status filter
     const sf = this.statusFilter();
-    if (sf === 'active') {
-      filtered = filtered.filter(a => a.effective_status === 'ACTIVE');
-    } else if (sf === 'paused') {
-      filtered = filtered.filter(a => a.effective_status !== 'ACTIVE');
-    }
+    if (sf === 'active') list = list.filter(a => a.effective_status === 'ACTIVE');
+    else if (sf === 'paused') list = list.filter(a => a.effective_status !== 'ACTIVE');
 
-    // Search
     const q = this.search().toLowerCase();
     if (q) {
-      filtered = filtered.filter(a =>
-        a.ad_name.toLowerCase().includes(q) ||
-        a.campaign_name.toLowerCase().includes(q) ||
+      list = list.filter(a =>
+        a.ad_name?.toLowerCase().includes(q) ||
+        a.campaign_name?.toLowerCase().includes(q) ||
         a.ad_id.includes(q)
       );
     }
 
-    // Classify
-    this.killList = [];
-    this.reduceList = [];
-    this.scaleList = [];
+    // Sort
+    const dir = this.sortDir === 'asc' ? 1 : -1;
+    const field = this.sortField;
+    list = [...list].sort((a: any, b: any) => {
+      const av = a[field] ?? 0;
+      const bv = b[field] ?? 0;
+      return (av - bv) * dir;
+    });
 
-    for (const ad of filtered) {
-      if (ad.spend_excess > 0 && ad.roas_7d === 0) {
-        this.killList.push(ad);
-      } else if (!ad.compliant) {
-        this.reduceList.push(ad);
-      } else {
-        this.scaleList.push(ad);
-      }
+    this.filteredAds = list;
+    this.page = 1;
+
+    // KPIs from filtered
+    this.totalSpend = list.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
+    this.totalValue = list.reduce((s, a) => s + (a.value_7d ?? 0), 0);
+    this.totalPurchases = list.reduce((s, a) => s + (a.purchases_7d ?? 0), 0);
+    this.blendedRoas = this.totalSpend > 0 ? this.totalValue / this.totalSpend : 0;
+    this.blendedCpa = this.totalPurchases > 0 ? this.totalSpend / this.totalPurchases : 0;
+    this.totalExcess = list.reduce((s, a) => s + (a.spend_excess > 0 ? a.spend_excess : 0), 0);
+  }
+
+  sort(field: string) {
+    if (this.sortField === field) {
+      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortField = field;
+      this.sortDir = 'desc';
     }
-
-    this.killList.sort((a, b) => b.spend_excess - a.spend_excess);
-    this.reduceList.sort((a, b) => b.spend_excess - a.spend_excess);
-    this.scaleList.sort((a, b) => b.roas_7d - a.roas_7d);
-
-    // KPIs
-    this.totalAds = filtered.length;
-    this.compliantCount = filtered.filter(a => a.compliant).length;
-    this.nonCompliantCount = filtered.filter(a => !a.compliant).length;
-    const withRoas = filtered.filter(a => a.roas_7d > 0);
-    this.avgRoas7d = withRoas.length > 0 ? withRoas.reduce((s, a) => s + a.roas_7d, 0) / withRoas.length : 0;
-    this.totalSpend7d = filtered.reduce((s, a) => s + a.spend_7d, 0);
-    this.totalValue7d = filtered.reduce((s, a) => s + a.value_7d, 0);
-    this.totalExcess = filtered.reduce((s, a) => s + (a.spend_excess > 0 ? a.spend_excess : 0), 0);
-
-    // Reset pagination
-    this.killPage = 1;
-    this.reducePage = 1;
-    this.scalePage = 1;
+    this.applyFilters();
   }
 
   onSearchChange(value: string) {
@@ -187,21 +145,14 @@ export class DashboardComponent implements OnInit {
     this.applyFilters();
   }
 
-  private paginate(list: DecisionAd[], page: number): DecisionAd[] {
-    const start = (page - 1) * this.PAGE_SIZE;
-    return list.slice(start, start + this.PAGE_SIZE);
-  }
+  goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
 
   statusLabel(s: string): string {
-    const map: Record<string, string> = {
-      'ACTIVE': 'Activo',
-      'PAUSED': 'Pausado',
-      'CAMPAIGN_PAUSED': 'Camp. pausada',
-      'ADSET_PAUSED': 'Adset pausado',
-      'DISAPPROVED': 'Rechazado',
-      'WITH_ISSUES': 'Con problemas'
+    const m: Record<string, string> = {
+      'ACTIVE': 'Activo', 'PAUSED': 'Pausado', 'CAMPAIGN_PAUSED': 'Camp. pausada',
+      'ADSET_PAUSED': 'Adset pausado', 'DISAPPROVED': 'Rechazado', 'WITH_ISSUES': 'Con problemas'
     };
-    return map[s] ?? s;
+    return m[s] ?? s;
   }
 
   statusClass(s: string): string {
@@ -210,22 +161,43 @@ export class DashboardComponent implements OnInit {
     return 'badge-gray';
   }
 
-  goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
+  complianceClass(ad: DashboardAd): string {
+    if (ad.compliant) return 'row-compliant';
+    if (ad.spend_excess > 0 && (ad.purchases_7d ?? 0) === 0) return 'row-kill';
+    return 'row-reduce';
+  }
 
-  fmt(n: number, d = 2): string {
+  thumbnailUrl(creativeId: string | null): string | null {
+    // Placeholder — will use real thumbnails when ingest stores them
+    return null;
+  }
+
+  fmt(n: number | null | undefined, d = 2): string {
+    if (n == null) return '—';
     return n.toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
-  fmtMoney(n: number): string {
+  fmtMoney(n: number | null | undefined): string {
+    if (n == null) return '—';
     return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  fmtPct(n: number | null | undefined): string {
+    if (n == null) return '—';
+    return n.toFixed(2) + '%';
+  }
+
+  sortIcon(field: string): string {
+    if (this.sortField !== field) return '';
+    return this.sortDir === 'asc' ? ' ▲' : ' ▼';
   }
 
   async registerPasskey() {
     this.passkeyRegistering.set(true);
     this.passkeyError.set('');
-    const result = await this.passkey.registerPasskey();
-    if (result.success) { this.showPasskeyBanner.set(false); }
-    else { this.passkeyError.set(result.error ?? 'Error'); }
+    const r = await this.passkey.registerPasskey();
+    if (r.success) this.showPasskeyBanner.set(false);
+    else this.passkeyError.set(r.error ?? 'Error');
     this.passkeyRegistering.set(false);
   }
 

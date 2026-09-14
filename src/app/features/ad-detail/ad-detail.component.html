@@ -7,15 +7,23 @@
   <h1 class="page-title">{{ adName || adId }} <span class="attr-label">7d_click</span></h1>
   <p class="subtitle">{{ campaignName }}</p>
 
-  <!-- Top KPIs -->
+  <!-- Top KPI row -->
   <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Compras</div>
+      <div class="kpi-value">{{ totalPurchases }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">CPA</div>
+      <div class="kpi-value">{{ fmtMoney(cpaCum) }}</div>
+    </div>
     <div class="kpi">
       <div class="kpi-label">Gasto acumulado</div>
       <div class="kpi-value">{{ fmtMoney(totalSpend) }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Compras</div>
-      <div class="kpi-value">{{ totalPurchases }}</div>
+      <div class="kpi-label">AOV</div>
+      <div class="kpi-value">{{ fmtMoney(aovCum) }}</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Edad</div>
@@ -31,7 +39,7 @@
   <!-- Chart + side cards -->
   <div class="chart-row">
     <div class="card chart-card">
-      <h2 class="card-title">ROAS acumulado vs 7d m&oacute;vil + gasto diario</h2>
+      <h2 class="card-title">Lifecycle: ROAS acumulado vs 7d m&oacute;vil</h2>
       <div class="chart-container">
         <canvas #lifecycleChart></canvas>
       </div>
@@ -41,48 +49,33 @@
     </div>
 
     <div class="side-cards">
-      <!-- ROAS card -->
+      <!-- ROAS Acumulado -->
       <div class="card side-card">
-        <div class="side-card-title">ROAS</div>
-        <div class="side-metric">
-          <span class="side-label">Acumulado</span>
-          <span class="side-value">{{ fmt(roasCum) }}x</span>
-        </div>
-        <div class="side-metric">
-          <span class="side-label">7d m&oacute;vil</span>
-          <span class="side-value" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">{{ fmt(roas7d) }}x</span>
-        </div>
+        <div class="side-card-title">ROAS Acumulado</div>
+        <div class="side-value-big">{{ fmt(roasCum) }}x</div>
+      </div>
+
+      <!-- ROAS 7d Móvil -->
+      <div class="card side-card">
+        <div class="side-card-title">ROAS 7d M&oacute;vil</div>
+        <div class="side-value-big" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">{{ fmt(roas7d) }}x</div>
         <div class="side-diff" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">
-          {{ roas7d >= roasCum ? '+' : '' }}{{ fmt(roas7d - roasCum) }}x
+          {{ roas7d >= roasCum ? '+' : '' }}{{ fmt(roas7d - roasCum) }}x vs acum.
         </div>
       </div>
 
-      <!-- CPA card -->
-      <div class="card side-card">
-        <div class="side-card-title">CPA</div>
-        <div class="side-metric">
-          <span class="side-label">Acumulado</span>
-          <span class="side-value">{{ fmtMoney(cpaCum) }}</span>
-        </div>
-        <div class="side-metric">
-          <span class="side-label">7d m&oacute;vil</span>
-          <span class="side-value" [style.color]="cpa7d > cpaCum ? '#fca5a5' : '#86efac'">{{ fmtMoney(cpa7d) }}</span>
-        </div>
-      </div>
-
-      <!-- Frequency card -->
+      <!-- Frequency -->
       <div class="card side-card">
         <div class="side-card-title">Frecuencia</div>
         <div class="side-value-big" [style.color]="currentFreq > 3.5 ? '#fde047' : '#f3f4f6'">
           {{ fmt(currentFreq, 1) }}
         </div>
         <div class="side-hint" *ngIf="currentFreq > 3.5">Alta &mdash; considerar rotaci&oacute;n</div>
-        <div class="side-hint" *ngIf="currentFreq <= 3.5">Normal</div>
       </div>
     </div>
   </div>
 
-  <!-- Comparison card: ROAS / CPA / AOV -->
+  <!-- Comparison table -->
   <div class="card">
     <h2 class="card-title">Comparativa: acumulado vs 7 d&iacute;as</h2>
     <table class="data-table">
@@ -103,11 +96,7 @@
           <td class="num" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">
             {{ roas7d >= roasCum ? '+' : '' }}{{ fmt(roas7d - roasCum) }}x
           </td>
-          <td>
-            <span class="badge" [ngClass]="roas7d >= roasCum ? 'badge-green' : 'badge-red'">
-              {{ roas7d >= roasCum ? 'Mejorando' : 'Deterioro' }}
-            </span>
-          </td>
+          <td><span class="badge" [ngClass]="roas7d >= roasCum ? 'badge-green' : 'badge-red'">{{ roas7d >= roasCum ? 'Mejorando' : 'Deterioro' }}</span></td>
         </tr>
         <tr>
           <td>CPA</td>
@@ -116,11 +105,7 @@
           <td class="num" [style.color]="cpa7d > cpaCum ? '#fca5a5' : '#86efac'">
             {{ cpa7d <= cpaCum ? '' : '+' }}{{ fmtMoney(cpa7d - cpaCum) }}
           </td>
-          <td>
-            <span class="badge" [ngClass]="cpa7d <= cpaCum ? 'badge-green' : 'badge-red'">
-              {{ cpa7d <= cpaCum ? 'Mejorando' : 'Empeorando' }}
-            </span>
-          </td>
+          <td><span class="badge" [ngClass]="cpa7d <= cpaCum ? 'badge-green' : 'badge-red'">{{ cpa7d <= cpaCum ? 'Mejorando' : 'Empeorando' }}</span></td>
         </tr>
         <tr>
           <td>AOV</td>
@@ -129,11 +114,7 @@
           <td class="num" [style.color]="aov7d >= aovCum ? '#86efac' : '#fca5a5'">
             {{ aov7d >= aovCum ? '+' : '' }}{{ fmtMoney(aov7d - aovCum) }}
           </td>
-          <td>
-            <span class="badge" [ngClass]="aov7d >= aovCum ? 'badge-green' : 'badge-yellow'">
-              {{ aov7d >= aovCum ? 'Estable' : 'Bajando' }}
-            </span>
-          </td>
+          <td><span class="badge" [ngClass]="aov7d >= aovCum ? 'badge-green' : 'badge-yellow'">{{ aov7d >= aovCum ? 'Estable' : 'Bajando' }}</span></td>
         </tr>
       </tbody>
     </table>
@@ -152,7 +133,7 @@
             <th class="num">Compras</th>
             <th class="num">ROAS acum.</th>
             <th class="num">ROAS 7d</th>
-            <th class="num">CPA acum.</th>
+            <th class="num">CPA</th>
             <th class="num">Freq.</th>
           </tr>
         </thead>
