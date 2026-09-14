@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, inject, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
@@ -14,7 +14,7 @@ Chart.register(...registerables);
   templateUrl: './ad-detail.component.html',
   styleUrl: './ad-detail.component.scss'
 })
-export class AdDetailComponent implements OnInit, AfterViewInit {
+export class AdDetailComponent implements OnInit {
   private supa = inject(SupabaseService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -80,11 +80,9 @@ export class AdDetailComponent implements OnInit, AfterViewInit {
       this.error = e.message ?? 'Error loading ad';
     } finally {
       this.loading = false;
+      // Wait for Angular to render the canvas after loading=false
+      setTimeout(() => this.buildChart(), 50);
     }
-  }
-
-  ngAfterViewInit() {
-    setTimeout(() => this.buildChart(), 100);
   }
 
   private buildChart() {
