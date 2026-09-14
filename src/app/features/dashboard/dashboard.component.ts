@@ -32,15 +32,11 @@ export class DashboardComponent implements OnInit {
 
   private allAds: DashboardAd[] = [];
 
-  // Filters
   search = signal('');
   statusFilter = signal<StatusFilter>('active');
-
-  // Sort
   sortField = 'spend_7d';
   sortDir: SortDir = 'desc';
 
-  // Counts
   activeCount = 0;
   pausedCount = 0;
 
@@ -52,10 +48,8 @@ export class DashboardComponent implements OnInit {
   blendedCpa = 0;
   totalExcess = 0;
 
-  // Filtered + sorted
   filteredAds: DashboardAd[] = [];
 
-  // Pagination
   page = 1;
   readonly PAGE_SIZE = 25;
 
@@ -104,22 +98,17 @@ export class DashboardComponent implements OnInit {
       );
     }
 
-    // Sort
     const dir = this.sortDir === 'asc' ? 1 : -1;
     const field = this.sortField;
-    list = [...list].sort((a: any, b: any) => {
-      const av = a[field] ?? 0;
-      const bv = b[field] ?? 0;
-      return (av - bv) * dir;
-    });
+    list = [...list].sort((a: any, b: any) => ((a[field] ?? 0) - (b[field] ?? 0)) * dir);
 
     this.filteredAds = list;
     this.page = 1;
 
-    // KPIs from filtered
+    // Use default purchases for KPIs when available, fall back to 7d
     this.totalSpend = list.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
     this.totalValue = list.reduce((s, a) => s + (a.value_7d ?? 0), 0);
-    this.totalPurchases = list.reduce((s, a) => s + (a.purchases_7d ?? 0), 0);
+    this.totalPurchases = list.reduce((s, a) => s + (a.purchases_default ?? a.purchases_7d ?? 0), 0);
     this.blendedRoas = this.totalSpend > 0 ? this.totalValue / this.totalSpend : 0;
     this.blendedCpa = this.totalPurchases > 0 ? this.totalSpend / this.totalPurchases : 0;
     this.totalExcess = list.reduce((s, a) => s + (a.spend_excess > 0 ? a.spend_excess : 0), 0);
@@ -135,15 +124,8 @@ export class DashboardComponent implements OnInit {
     this.applyFilters();
   }
 
-  onSearchChange(value: string) {
-    this.search.set(value);
-    this.applyFilters();
-  }
-
-  setStatusFilter(f: StatusFilter) {
-    this.statusFilter.set(f);
-    this.applyFilters();
-  }
+  onSearchChange(value: string) { this.search.set(value); this.applyFilters(); }
+  setStatusFilter(f: StatusFilter) { this.statusFilter.set(f); this.applyFilters(); }
 
   goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
 
@@ -167,9 +149,18 @@ export class DashboardComponent implements OnInit {
     return 'row-reduce';
   }
 
-  thumbnailUrl(creativeId: string | null): string | null {
-    // Placeholder — will use real thumbnails when ingest stores them
-    return null;
+  confidenceIcon(purchases: number | null): string {
+    const p = purchases ?? 0;
+    if (p >= 15) return '🛡️';
+    if (p >= 10) return '⚠️';
+    return '🔬';
+  }
+
+  confidenceLabel(purchases: number | null): string {
+    const p = purchases ?? 0;
+    if (p >= 15) return 'Confiable';
+    if (p >= 10) return 'Confianza mínima';
+    return 'Datos insuficientes';
   }
 
   fmt(n: number | null | undefined, d = 2): string {

@@ -1,33 +1,69 @@
 <div class="back-link" (click)="goBack()">&larr; Dashboard</div>
 
-<div *ngIf="loading" class="loading">Cargando ficha de anuncio...</div>
+<div *ngIf="loading" class="loading">Cargando ficha...</div>
 <div *ngIf="error" class="error-msg">{{ error }}</div>
 
-<ng-container *ngIf="!loading && !error && rows.length > 0">
-  <h1 class="page-title">{{ adName || adId }} <span class="attr-label">7d_click</span></h1>
-  <p class="subtitle">{{ campaignName }}</p>
+<ng-container *ngIf="!loading && !error && (rows.length > 0 || dashAd)">
+  <!-- Header -->
+  <div class="ad-header">
+    <div class="ad-thumb-lg" *ngIf="thumbnailUrl"><img [src]="thumbnailUrl" alt="" /></div>
+    <div class="ad-thumb-lg placeholder" *ngIf="!thumbnailUrl">&#9654;</div>
+    <div>
+      <h1 class="page-title">{{ adName || adId }}</h1>
+      <p class="subtitle">{{ campaignName }} <span class="attr-label">7d_click</span></p>
+      <div class="confidence-badge">
+        <span>{{ confidenceIcon }}</span>
+        <span>{{ confidenceLabel }} ({{ purchasesCum }} compras)</span>
+      </div>
+    </div>
+  </div>
 
-  <!-- Top KPI row -->
-  <div class="kpi-row">
-    <div class="kpi">
-      <div class="kpi-label">Compras</div>
-      <div class="kpi-value">{{ totalPurchases }}</div>
+  <!-- All metrics as cards -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-label">Compras</div>
+      <div class="metric-value">{{ purchasesCum }}</div>
+      <div class="metric-sub">7d: {{ purchases7d }}</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">CPA</div>
-      <div class="kpi-value">{{ fmtMoney(cpaCum) }}</div>
+    <div class="metric-card">
+      <div class="metric-label">CPA</div>
+      <div class="metric-value">{{ fmtMoney(cpaDefault ?? cpaCum) }}</div>
+      <div class="metric-sub">7d: {{ fmtMoney(cpa7d) }}</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">Gasto acumulado</div>
-      <div class="kpi-value">{{ fmtMoney(totalSpend) }}</div>
+    <div class="metric-card">
+      <div class="metric-label">ROAS acum.</div>
+      <div class="metric-value">{{ fmt(roasCum) }}x</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">AOV</div>
-      <div class="kpi-value">{{ fmtMoney(aovCum) }}</div>
+    <div class="metric-card">
+      <div class="metric-label">ROAS 7d</div>
+      <div class="metric-value" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">{{ fmt(roas7d) }}x</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">Edad</div>
-      <div class="kpi-value">{{ maxDay }}d</div>
+    <div class="metric-card">
+      <div class="metric-label">AOV</div>
+      <div class="metric-value">{{ fmtMoney(aovCum) }}</div>
+      <div class="metric-sub">7d: {{ fmtMoney(aov7d) }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Gasto acum.</div>
+      <div class="metric-value">{{ fmtMoney(totalSpend) }}</div>
+      <div class="metric-sub">7d: {{ fmtMoney(spend7d) }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Ingreso acum.</div>
+      <div class="metric-value">{{ fmtMoney(totalValue) }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">CTR</div>
+      <div class="metric-value">{{ fmt(ctr7d) }}%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Frecuencia</div>
+      <div class="metric-value" [style.color]="freqRecent > 3.5 ? '#fde047' : '#f3f4f6'">{{ fmt(freqRecent, 1) }}</div>
+      <div class="metric-sub" *ngIf="freqRecent > 3.5">Alta - rotar creativo</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Edad</div>
+      <div class="metric-value">{{ maxDay }}d</div>
     </div>
   </div>
 
@@ -44,18 +80,15 @@
         <canvas #lifecycleChart></canvas>
       </div>
       <div class="chart-legend-note" *ngIf="immatureStart !== null">
-        <span class="immature-marker"></span> Zona gris = datos a&uacute;n no maduros (d&iacute;a {{ immatureStart }}+)
+        <span class="immature-marker"></span> Zona gris = datos no maduros (d&iacute;a {{ immatureStart }}+)
       </div>
     </div>
 
     <div class="side-cards">
-      <!-- ROAS Acumulado -->
       <div class="card side-card">
         <div class="side-card-title">ROAS Acumulado</div>
         <div class="side-value-big">{{ fmt(roasCum) }}x</div>
       </div>
-
-      <!-- ROAS 7d Móvil -->
       <div class="card side-card">
         <div class="side-card-title">ROAS 7d M&oacute;vil</div>
         <div class="side-value-big" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">{{ fmt(roas7d) }}x</div>
@@ -63,16 +96,38 @@
           {{ roas7d >= roasCum ? '+' : '' }}{{ fmt(roas7d - roasCum) }}x vs acum.
         </div>
       </div>
-
-      <!-- Frequency -->
       <div class="card side-card">
         <div class="side-card-title">Frecuencia</div>
-        <div class="side-value-big" [style.color]="currentFreq > 3.5 ? '#fde047' : '#f3f4f6'">
-          {{ fmt(currentFreq, 1) }}
-        </div>
-        <div class="side-hint" *ngIf="currentFreq > 3.5">Alta &mdash; considerar rotaci&oacute;n</div>
+        <div class="side-value-big" [style.color]="freqRecent > 3.5 ? '#fde047' : '#f3f4f6'">{{ fmt(freqRecent, 1) }}</div>
       </div>
     </div>
+  </div>
+
+  <!-- Attribution breakdown -->
+  <div class="card" *ngIf="attrWindows.length > 0">
+    <h2 class="card-title">Desglose por ventana de atribuci&oacute;n</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Ventana</th>
+          <th class="num">Compras</th>
+          <th class="num">% del total</th>
+          <th class="num">CPA</th>
+          <th class="num">AOV</th>
+          <th class="num">ROAS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let w of attrWindows" [style.font-weight]="w.window === 'default' ? '600' : 'normal'">
+          <td>{{ w.label }}</td>
+          <td class="num">{{ w.purchases }}</td>
+          <td class="num">{{ fmtPct(w.pctTotal) }}</td>
+          <td class="num">{{ fmtMoney(w.cpa) }}</td>
+          <td class="num">{{ fmtMoney(w.aov) }}</td>
+          <td class="num">{{ fmt(w.roas) }}x</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
   <!-- Comparison table -->
@@ -84,7 +139,6 @@
           <th>M&eacute;trica</th>
           <th class="num">Acumulado</th>
           <th class="num">7d m&oacute;vil</th>
-          <th class="num">Diferencia</th>
           <th>Se&ntilde;al</th>
         </tr>
       </thead>
@@ -93,35 +147,26 @@
           <td>ROAS</td>
           <td class="num">{{ fmt(roasCum) }}x</td>
           <td class="num">{{ fmt(roas7d) }}x</td>
-          <td class="num" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">
-            {{ roas7d >= roasCum ? '+' : '' }}{{ fmt(roas7d - roasCum) }}x
-          </td>
           <td><span class="badge" [ngClass]="roas7d >= roasCum ? 'badge-green' : 'badge-red'">{{ roas7d >= roasCum ? 'Mejorando' : 'Deterioro' }}</span></td>
         </tr>
         <tr>
           <td>CPA</td>
           <td class="num">{{ fmtMoney(cpaCum) }}</td>
           <td class="num">{{ fmtMoney(cpa7d) }}</td>
-          <td class="num" [style.color]="cpa7d > cpaCum ? '#fca5a5' : '#86efac'">
-            {{ cpa7d <= cpaCum ? '' : '+' }}{{ fmtMoney(cpa7d - cpaCum) }}
-          </td>
           <td><span class="badge" [ngClass]="cpa7d <= cpaCum ? 'badge-green' : 'badge-red'">{{ cpa7d <= cpaCum ? 'Mejorando' : 'Empeorando' }}</span></td>
         </tr>
         <tr>
           <td>AOV</td>
           <td class="num">{{ fmtMoney(aovCum) }}</td>
           <td class="num">{{ fmtMoney(aov7d) }}</td>
-          <td class="num" [style.color]="aov7d >= aovCum ? '#86efac' : '#fca5a5'">
-            {{ aov7d >= aovCum ? '+' : '' }}{{ fmtMoney(aov7d - aovCum) }}
-          </td>
           <td><span class="badge" [ngClass]="aov7d >= aovCum ? 'badge-green' : 'badge-yellow'">{{ aov7d >= aovCum ? 'Estable' : 'Bajando' }}</span></td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- Raw data table -->
-  <div class="card">
+  <!-- Raw data -->
+  <div class="card" *ngIf="rows.length > 0">
     <h2 class="card-title">Datos por d&iacute;a de vida</h2>
     <div style="max-height: 400px; overflow-y: auto;">
       <table class="data-table">
@@ -154,6 +199,6 @@
   </div>
 </ng-container>
 
-<div *ngIf="!loading && !error && rows.length === 0" class="loading">
+<div *ngIf="!loading && !error && rows.length === 0 && !dashAd" class="loading">
   No se encontraron datos para este anuncio.
 </div>

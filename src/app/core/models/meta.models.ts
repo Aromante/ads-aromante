@@ -67,6 +67,15 @@ export interface DashboardAd {
   ctr_7d: number;
   freq_recent: number;
   creative_id: string | null;
+  thumbnail_url: string | null;
+  purchases_default: number | null;
+  cpa_default: number | null;
+  purchases_7d_click: number | null;
+  value_7d_click: number | null;
+  purchases_1d_click: number | null;
+  value_1d_click: number | null;
+  purchases_1d_view: number | null;
+  value_1d_view: number | null;
 }
 
 /** Row from meta_ads_daily_final view */
