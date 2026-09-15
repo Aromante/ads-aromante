@@ -149,7 +149,6 @@ export class DashboardComponent implements OnInit {
     }
 
     this.buildView();
-    this.cdr.detectChanges();
   }
 
   onSearchChange(value: string) {
