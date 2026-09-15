@@ -3,67 +3,96 @@
 <div *ngIf="loading" class="loading">Cargando ficha...</div>
 <div *ngIf="error" class="error-msg">{{ error }}</div>
 
-<ng-container *ngIf="!loading && !error && (rows.length > 0 || dashAd)">
+<ng-container *ngIf="!loading && !error && sc">
   <!-- Header -->
   <div class="ad-header">
-    <div class="ad-thumb-lg" *ngIf="thumbnailUrl"><img [src]="thumbnailUrl" alt="" /></div>
-    <div class="ad-thumb-lg placeholder" *ngIf="!thumbnailUrl">&#9654;</div>
     <div>
-      <h1 class="page-title">{{ adName || adId }}</h1>
-      <p class="subtitle">{{ campaignName }} <span class="attr-label">7d_click</span></p>
-      <div class="confidence-badge">
-        <span>{{ confidenceIcon }}</span>
-        <span>{{ confidenceLabel }} ({{ purchasesCum }} compras)</span>
+      <h1 class="page-title">{{ sc.ad_name }}</h1>
+      <p class="subtitle">{{ sc.campaign_name }}</p>
+      <div class="decision-badge" [class]="'decision-' + (sc.decision?.includes('ESCALAR') ? 'scale' : sc.decision?.includes('APAGAR') ? 'kill' : 'review')">
+        {{ sc.decision }}
       </div>
     </div>
   </div>
 
-  <!-- All metrics as cards -->
+  <!-- Confidence + age -->
+  <div class="meta-row">
+    <span class="confidence" [class.trusted]="sc.confiable" [class.untrusted]="!sc.confiable">
+      {{ sc.confiable ? '&#128737; Confiable' : '&#128300; Datos insuficientes' }}
+    </span>
+    <span class="meta-item">{{ sc.dias_vida }}d de vida</span>
+    <span class="meta-item">&Uacute;ltimo cierre: {{ sc.ultimo_dia_cerrado }}</span>
+    <span class="meta-item" *ngIf="sc.dias_movil_abajo > 0" style="color: #fca5a5;">
+      {{ sc.dias_movil_abajo }}d m&oacute;vil abajo
+    </span>
+  </div>
+
+  <!-- All scorecard metrics -->
   <div class="metrics-grid">
+    <!-- Default (cuadra con Ads Manager) -->
+    <div class="metric-card highlight">
+      <div class="metric-label">Compras (default)</div>
+      <div class="metric-value">{{ sc.compras_default }}</div>
+    </div>
+    <div class="metric-card highlight">
+      <div class="metric-label">ROAS (default)</div>
+      <div class="metric-value">{{ fmt(sc.roas_default) }}x</div>
+    </div>
+    <div class="metric-card highlight">
+      <div class="metric-label">CPA (default)</div>
+      <div class="metric-value">{{ fmtMoney(sc.cpa_default) }}</div>
+    </div>
+    <div class="metric-card highlight">
+      <div class="metric-label">AOV (default)</div>
+      <div class="metric-value">{{ fmtMoney(sc.aov_default) }}</div>
+    </div>
+
+    <!-- Clic -->
     <div class="metric-card">
-      <div class="metric-label">Compras</div>
-      <div class="metric-value">{{ purchasesCum }}</div>
-      <div class="metric-sub">7d: {{ purchases7d }}</div>
+      <div class="metric-label">Compras (7d clic)</div>
+      <div class="metric-value">{{ sc.compras_clic }}</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">CPA</div>
-      <div class="metric-value">{{ fmtMoney(cpaDefault ?? cpaCum) }}</div>
-      <div class="metric-sub">7d: {{ fmtMoney(cpa7d) }}</div>
+      <div class="metric-label">ROAS clic</div>
+      <div class="metric-value">{{ fmt(sc.roas_clic) }}x</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">ROAS acum.</div>
-      <div class="metric-value">{{ fmt(roasCum) }}x</div>
+      <div class="metric-label">ROAS clic 7d</div>
+      <div class="metric-value" [style.color]="sc.roas_clic_7d < sc.roas_clic ? '#fca5a5' : '#86efac'">
+        {{ fmt(sc.roas_clic_7d) }}x
+      </div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">ROAS 7d</div>
-      <div class="metric-value" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">{{ fmt(roas7d) }}x</div>
+      <div class="metric-label">CPA clic</div>
+      <div class="metric-value">{{ fmtMoney(sc.cpa_clic) }}</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">AOV</div>
-      <div class="metric-value">{{ fmtMoney(aovCum) }}</div>
-      <div class="metric-sub">7d: {{ fmtMoney(aov7d) }}</div>
+      <div class="metric-label">CPA clic 7d</div>
+      <div class="metric-value" [style.color]="sc.cpa_clic_7d > sc.cpa_clic ? '#fca5a5' : '#86efac'">
+        {{ fmtMoney(sc.cpa_clic_7d) }}
+      </div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Gasto acum.</div>
-      <div class="metric-value">{{ fmtMoney(totalSpend) }}</div>
-      <div class="metric-sub">7d: {{ fmtMoney(spend7d) }}</div>
+      <div class="metric-label">AOV clic</div>
+      <div class="metric-value">{{ fmtMoney(sc.aov_clic) }}</div>
+    </div>
+
+    <!-- Frequency + reach -->
+    <div class="metric-card">
+      <div class="metric-label">Frecuencia 7d</div>
+      <div class="metric-value" [style.color]="sc.freq_7d > 3.5 ? '#fde047' : '#f3f4f6'">{{ fmt(sc.freq_7d, 1) }}</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Ingreso acum.</div>
-      <div class="metric-value">{{ fmtMoney(totalValue) }}</div>
+      <div class="metric-label">Frecuencia 30d</div>
+      <div class="metric-value" [style.color]="sc.freq_30d > 3.5 ? '#fde047' : '#f3f4f6'">{{ fmt(sc.freq_30d, 1) }}</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">CTR</div>
-      <div class="metric-value">{{ fmt(ctr7d) }}%</div>
+      <div class="metric-label">Alcance 30d</div>
+      <div class="metric-value">{{ sc.alcance_30d | number }}</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Frecuencia</div>
-      <div class="metric-value" [style.color]="freqRecent > 3.5 ? '#fde047' : '#f3f4f6'">{{ fmt(freqRecent, 1) }}</div>
-      <div class="metric-sub" *ngIf="freqRecent > 3.5">Alta - rotar creativo</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Edad</div>
-      <div class="metric-value">{{ maxDay }}d</div>
+      <div class="metric-label">Gasto acumulado</div>
+      <div class="metric-value">{{ fmtMoney(sc.gasto) }}</div>
     </div>
   </div>
 
@@ -73,7 +102,7 @@
   </div>
 
   <!-- Chart + side cards -->
-  <div class="chart-row">
+  <div class="chart-row" *ngIf="rows.length > 0">
     <div class="card chart-card">
       <h2 class="card-title">Lifecycle: ROAS acumulado vs 7d m&oacute;vil</h2>
       <div class="chart-container">
@@ -87,50 +116,23 @@
     <div class="side-cards">
       <div class="card side-card">
         <div class="side-card-title">ROAS Acumulado</div>
-        <div class="side-value-big">{{ fmt(roasCum) }}x</div>
+        <div class="side-value-big">{{ fmt(sc.roas_clic) }}x</div>
       </div>
       <div class="card side-card">
         <div class="side-card-title">ROAS 7d M&oacute;vil</div>
-        <div class="side-value-big" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">{{ fmt(roas7d) }}x</div>
-        <div class="side-diff" [style.color]="roas7d < roasCum ? '#fca5a5' : '#86efac'">
-          {{ roas7d >= roasCum ? '+' : '' }}{{ fmt(roas7d - roasCum) }}x vs acum.
+        <div class="side-value-big" [style.color]="sc.roas_clic_7d < sc.roas_clic ? '#fca5a5' : '#86efac'">{{ fmt(sc.roas_clic_7d) }}x</div>
+        <div class="side-diff" [style.color]="sc.roas_clic_7d < sc.roas_clic ? '#fca5a5' : '#86efac'">
+          {{ sc.roas_clic_7d >= sc.roas_clic ? '+' : '' }}{{ fmt(sc.roas_clic_7d - sc.roas_clic) }}x
         </div>
       </div>
       <div class="card side-card">
-        <div class="side-card-title">Frecuencia</div>
-        <div class="side-value-big" [style.color]="freqRecent > 3.5 ? '#fde047' : '#f3f4f6'">{{ fmt(freqRecent, 1) }}</div>
+        <div class="side-card-title">Frecuencia 30d</div>
+        <div class="side-value-big" [style.color]="sc.freq_30d > 3.5 ? '#fde047' : '#f3f4f6'">{{ fmt(sc.freq_30d, 1) }}</div>
       </div>
     </div>
   </div>
 
-  <!-- Attribution breakdown -->
-  <div class="card" *ngIf="attrWindows.length > 0">
-    <h2 class="card-title">Desglose por ventana de atribuci&oacute;n</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Ventana</th>
-          <th class="num">Compras</th>
-          <th class="num">% del total</th>
-          <th class="num">CPA</th>
-          <th class="num">AOV</th>
-          <th class="num">ROAS</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let w of attrWindows" [style.font-weight]="w.window === 'default' ? '600' : 'normal'">
-          <td>{{ w.label }}</td>
-          <td class="num">{{ w.purchases }}</td>
-          <td class="num">{{ fmtPct(w.pctTotal) }}</td>
-          <td class="num">{{ fmtMoney(w.cpa) }}</td>
-          <td class="num">{{ fmtMoney(w.aov) }}</td>
-          <td class="num">{{ fmt(w.roas) }}x</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Comparison table -->
+  <!-- Comparativa acum vs 7d -->
   <div class="card">
     <h2 class="card-title">Comparativa: acumulado vs 7 d&iacute;as</h2>
     <table class="data-table">
@@ -145,27 +147,27 @@
       <tbody>
         <tr>
           <td>ROAS</td>
-          <td class="num">{{ fmt(roasCum) }}x</td>
-          <td class="num">{{ fmt(roas7d) }}x</td>
-          <td><span class="badge" [ngClass]="roas7d >= roasCum ? 'badge-green' : 'badge-red'">{{ roas7d >= roasCum ? 'Mejorando' : 'Deterioro' }}</span></td>
+          <td class="num">{{ fmt(sc.roas_clic) }}x</td>
+          <td class="num">{{ fmt(sc.roas_clic_7d) }}x</td>
+          <td><span class="badge" [ngClass]="sc.roas_clic_7d >= sc.roas_clic ? 'badge-green' : 'badge-red'">{{ sc.roas_clic_7d >= sc.roas_clic ? 'Mejorando' : 'Deterioro' }}</span></td>
         </tr>
         <tr>
           <td>CPA</td>
-          <td class="num">{{ fmtMoney(cpaCum) }}</td>
-          <td class="num">{{ fmtMoney(cpa7d) }}</td>
-          <td><span class="badge" [ngClass]="cpa7d <= cpaCum ? 'badge-green' : 'badge-red'">{{ cpa7d <= cpaCum ? 'Mejorando' : 'Empeorando' }}</span></td>
+          <td class="num">{{ fmtMoney(sc.cpa_clic) }}</td>
+          <td class="num">{{ fmtMoney(sc.cpa_clic_7d) }}</td>
+          <td><span class="badge" [ngClass]="sc.cpa_clic_7d <= sc.cpa_clic ? 'badge-green' : 'badge-red'">{{ sc.cpa_clic_7d <= sc.cpa_clic ? 'Mejorando' : 'Empeorando' }}</span></td>
         </tr>
         <tr>
           <td>AOV</td>
-          <td class="num">{{ fmtMoney(aovCum) }}</td>
-          <td class="num">{{ fmtMoney(aov7d) }}</td>
-          <td><span class="badge" [ngClass]="aov7d >= aovCum ? 'badge-green' : 'badge-yellow'">{{ aov7d >= aovCum ? 'Estable' : 'Bajando' }}</span></td>
+          <td class="num">{{ fmtMoney(sc.aov_clic) }}</td>
+          <td class="num">{{ fmtMoney(sc.aov_default) }}</td>
+          <td><span class="badge badge-gray">Referencia</span></td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- Raw data -->
+  <!-- Raw lifecycle data -->
   <div class="card" *ngIf="rows.length > 0">
     <h2 class="card-title">Datos por d&iacute;a de vida</h2>
     <div style="max-height: 400px; overflow-y: auto;">
@@ -178,8 +180,9 @@
             <th class="num">Compras</th>
             <th class="num">ROAS acum.</th>
             <th class="num">ROAS 7d</th>
-            <th class="num">CPA</th>
-            <th class="num">Freq.</th>
+            <th class="num">CPA acum.</th>
+            <th class="num">AOV acum.</th>
+            <th class="num">CTR acum.</th>
           </tr>
         </thead>
         <tbody>
@@ -191,7 +194,8 @@
             <td class="num">{{ fmt(r.roas_cum) }}x</td>
             <td class="num">{{ fmt(r.roas_7d) }}x</td>
             <td class="num">{{ fmtMoney(r.cpa_cum) }}</td>
-            <td class="num">{{ fmt(r.frequency_day, 1) }}</td>
+            <td class="num">{{ fmtMoney(r.aov_cum) }}</td>
+            <td class="num">{{ fmt(r.ctr_cum) }}%</td>
           </tr>
         </tbody>
       </table>
@@ -199,6 +203,6 @@
   </div>
 </ng-container>
 
-<div *ngIf="!loading && !error && rows.length === 0 && !dashAd" class="loading">
+<div *ngIf="!loading && !error && !sc" class="loading">
   No se encontraron datos para este anuncio.
 </div>

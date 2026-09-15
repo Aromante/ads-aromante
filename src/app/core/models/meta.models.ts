@@ -1,4 +1,4 @@
-/** Row from meta_ad_lifecycle_mat */
+/** Row from meta_ad_lifecycle_mat (legacy) */
 export interface AdLifecycle {
   ad_id: string;
   date: string;
@@ -19,6 +19,62 @@ export interface AdLifecycle {
   value_7d: number;
   roas_7d: number;
   cpa_7d: number;
+}
+
+/** Row from meta_ad_lifecycle_closed — for charts */
+export interface LifecycleClosed {
+  ad_id: string;
+  date: string;
+  ad_day: number;
+  days_matured: number;
+  matured: boolean;
+  learning_phase: boolean;
+  spend_day: number;
+  purchases_day: number;
+  impressions_day: number;
+  clicks_day: number;
+  spend_cum: number;
+  purchases_cum: number;
+  value_cum: number;
+  impressions_cum: number;
+  clicks_cum: number;
+  ctr_cum: number;
+  aov_cum: number;
+  roas_cum: number;
+  cpa_cum: number;
+  spend_7d: number;
+  purchases_7d: number;
+  value_7d: number;
+  aov_7d: number;
+  roas_7d: number;
+  cpa_7d: number;
+}
+
+/** Row from meta_ad_scorecard — single query, all metrics pre-calculated */
+export interface AdScorecard {
+  ad_id: string;
+  ad_name: string;
+  campaign_name: string;
+  campaign_role: string | null;
+  dias_vida: number;
+  ultimo_dia_cerrado: string;
+  gasto: number;
+  dias_movil_abajo: number;
+  compras_clic: number;
+  confiable: boolean;
+  roas_clic: number;
+  roas_clic_7d: number;
+  cpa_clic: number;
+  cpa_clic_7d: number;
+  aov_clic: number;
+  compras_default: number;
+  roas_default: number;
+  cpa_default: number;
+  aov_default: number;
+  freq_7d: number;
+  freq_30d: number;
+  alcance_30d: number;
+  decision: string;
 }
 
 /** Row from meta_floor_compliance_mat */
