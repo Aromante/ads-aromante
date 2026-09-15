@@ -30,7 +30,6 @@
     <div class="kpi-item"><span class="kpi-label">Compras</span><span class="kpi-val">{{ totalPurchases | number }}</span></div>
     <div class="kpi-item"><span class="kpi-label">ROAS</span><span class="kpi-val">{{ fmt(blendedRoas) }}x</span></div>
     <div class="kpi-item"><span class="kpi-label">CPA</span><span class="kpi-val">{{ fmtMoney(blendedCpa) }}</span></div>
-    <div class="kpi-item" *ngIf="totalExcess > 0"><span class="kpi-label">Exceso</span><span class="kpi-val excess">{{ fmtMoney(totalExcess) }}</span></div>
   </div>
 
   <!-- Hierarchy table -->
