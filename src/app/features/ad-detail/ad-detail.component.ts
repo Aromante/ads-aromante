@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
@@ -32,6 +32,7 @@ export class AdDetailComponent implements OnInit {
   private cache = inject(CacheService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
 
   private chart?: Chart;
   private canvasEl?: HTMLCanvasElement;
@@ -172,6 +173,7 @@ export class AdDetailComponent implements OnInit {
       this.error = e.message ?? 'Error loading ad';
     } finally {
       this.loading = false;
+      this.cdr.detectChanges();
     }
   }
 
