@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -47,7 +47,7 @@ export class DashboardComponent implements OnInit {
   private cache = inject(CacheService);
   private router = inject(Router);
   private passkey = inject(PasskeyService);
-  private cdr = inject(ChangeDetectorRef);
+
 
   showPasskeyBanner = signal(false);
   passkeyRegistering = signal(false);
@@ -120,7 +120,6 @@ export class DashboardComponent implements OnInit {
       this.error = e.message ?? 'Error loading data';
     } finally {
       this.loading = false;
-      this.cdr.detectChanges();
     }
   }
 
