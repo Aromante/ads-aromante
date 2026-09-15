@@ -15,20 +15,12 @@ export class SupabaseService {
     );
   }
 
-  /** Wraps a promise so it resolves inside Angular's zone */
-  private inZone<T>(promise: Promise<T>): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      promise.then(
-        val => this.zone.run(() => resolve(val)),
-        err => this.zone.run(() => reject(err))
-      );
-    });
-  }
-
   async select<T = any>(view: string, columns = '*'): Promise<T[]> {
-    const { data, error } = await this.inZone(this.client.from(view).select(columns));
-    if (error) throw error;
-    return (data ?? []) as T[];
+    const result = await this.zone.run(() =>
+      this.client.from(view).select(columns).then(r => r)
+    );
+    if (result.error) throw result.error;
+    return (result.data ?? []) as T[];
   }
 
   async selectWithFilter<T = any>(
@@ -38,14 +30,16 @@ export class SupabaseService {
   ): Promise<T[]> {
     let query = this.client.from(view).select(columns);
     query = filter(query);
-    const { data, error } = await this.inZone(query);
-    if (error) throw error;
-    return (data ?? []) as T[];
+    const result = await this.zone.run(() => query.then((r: any) => r));
+    if (result.error) throw result.error;
+    return (result.data ?? []) as T[];
   }
 
   async rpc<T = any>(fn: string, params?: Record<string, any>): Promise<T> {
-    const { data, error } = await this.inZone(this.client.rpc(fn, params));
-    if (error) throw error;
-    return data as T;
+    const result = await this.zone.run(() =>
+      this.client.rpc(fn, params).then(r => r)
+    );
+    if (result.error) throw result.error;
+    return result.data as T;
   }
 }
