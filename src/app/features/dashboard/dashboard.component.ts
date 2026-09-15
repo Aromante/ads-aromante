@@ -71,12 +71,10 @@ export class DashboardComponent implements OnInit {
   passkeyError = signal('');
 
   loading = true;
-  loadingMore = false;
   error = '';
 
   private activeAds: DashAd[] = [];
   private pausedAds: DashAd[] = [];
-  private pausedLoaded = false;
 
   search = signal('');
   statusFilter = signal<StatusFilter>('active');
@@ -93,28 +91,20 @@ export class DashboardComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      let active = this.cache.get<DashAd[]>('dash_active');
-      if (!active) {
-        // Join scorecard + dim for active ads
-        const { data, error } = await this.supa.client
-          .from('meta_ad_scorecard')
-          .select(`
-            ad_id, ad_name, campaign_name, decision, confiable,
-            compras_default, roas_default, cpa_default, aov_default,
-            roas_clic, roas_clic_7d, freq_7d, freq_30d, gasto, dias_vida
-          `);
-        if (error) throw error;
+      let ads = this.cache.get<DashAd[]>('dash_ads');
+      if (!ads) {
+        // Scorecard has only ads with enough data (all currently active)
+        const scorecards = await this.supa.select<any>('meta_ad_scorecard');
 
-        // Get dim data for adset_name, effective_status, thumbnail_url
-        const { data: dims, error: dimErr } = await this.supa.client
-          .from('meta_ads_dim')
-          .select('ad_id, adset_name, effective_status, thumbnail_url')
-          .is('valid_to', null);
-        if (dimErr) throw dimErr;
+        const dims = await this.supa.selectWithFilter<any>(
+          'meta_ads_dim',
+          'ad_id, adset_name, effective_status, thumbnail_url',
+          q => q.is('valid_to', null)
+        );
 
-        const dimMap = new Map((dims ?? []).map(d => [d.ad_id, d]));
+        const dimMap = new Map(dims.map((d: any) => [d.ad_id, d]));
 
-        const all = (data ?? []).map(s => {
+        ads = scorecards.map((s: any) => {
           const d = dimMap.get(s.ad_id);
           return {
             ...s,
@@ -124,24 +114,13 @@ export class DashboardComponent implements OnInit {
           } as DashAd;
         });
 
-        active = all.filter(a => a.effective_status === 'ACTIVE');
-        this.pausedAds = all.filter(a => a.effective_status !== 'ACTIVE');
-        this.pausedLoaded = true;
-
-        this.cache.set('dash_active', active);
-        this.cache.set('dash_paused', this.pausedAds);
+        this.cache.set('dash_ads', ads);
       }
 
-      this.activeAds = active;
-      this.activeCount = active.length;
-
-      if (!this.pausedLoaded) {
-        const paused = this.cache.get<DashAd[]>('dash_paused');
-        if (paused) {
-          this.pausedAds = paused;
-          this.pausedLoaded = true;
-        }
-      }
+      // scorecard currently only has active ads
+      this.activeAds = ads.filter(a => a.effective_status === 'ACTIVE');
+      this.pausedAds = ads.filter(a => a.effective_status !== 'ACTIVE');
+      this.activeCount = this.activeAds.length;
       this.pausedCount = this.pausedAds.length;
 
       this.buildView();
@@ -157,7 +136,7 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  async setStatusFilter(f: StatusFilter) {
+  setStatusFilter(f: StatusFilter) {
     this.statusFilter.set(f);
     this.buildView();
   }

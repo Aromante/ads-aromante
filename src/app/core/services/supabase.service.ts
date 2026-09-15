@@ -1,11 +1,11 @@
-import { Injectable, NgZone, inject } from '@angular/core';
+import { ApplicationRef, Injectable, inject } from '@angular/core';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {
   readonly client: SupabaseClient;
-  private zone = inject(NgZone);
+  private appRef = inject(ApplicationRef);
 
   constructor() {
     this.client = createClient(
@@ -15,12 +15,16 @@ export class SupabaseService {
     );
   }
 
+  /** Trigger change detection after async completes */
+  private tick() {
+    this.appRef.tick();
+  }
+
   async select<T = any>(view: string, columns = '*'): Promise<T[]> {
-    const result = await this.zone.run(() =>
-      this.client.from(view).select(columns).then(r => r)
-    );
-    if (result.error) throw result.error;
-    return (result.data ?? []) as T[];
+    const { data, error } = await this.client.from(view).select(columns);
+    this.tick();
+    if (error) throw error;
+    return (data ?? []) as T[];
   }
 
   async selectWithFilter<T = any>(
@@ -30,16 +34,21 @@ export class SupabaseService {
   ): Promise<T[]> {
     let query = this.client.from(view).select(columns);
     query = filter(query);
-    const result = await this.zone.run(() => query.then((r: any) => r));
-    if (result.error) throw result.error;
-    return (result.data ?? []) as T[];
+    const { data, error } = await query;
+    this.tick();
+    if (error) throw error;
+    return (data ?? []) as T[];
   }
 
   async rpc<T = any>(fn: string, params?: Record<string, any>): Promise<T> {
-    const result = await this.zone.run(() =>
-      this.client.rpc(fn, params).then(r => r)
-    );
-    if (result.error) throw result.error;
-    return result.data as T;
+    const { data, error } = await this.client.rpc(fn, params);
+    this.tick();
+    if (error) throw error;
+    return data as T;
+  }
+
+  /** For direct client usage — call after any await on client */
+  triggerUpdate() {
+    this.tick();
   }
 }
