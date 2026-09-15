@@ -46,6 +46,7 @@ export interface DashboardAd {
   ad_id: string;
   ad_name: string;
   campaign_name: string;
+  adset_name?: string;
   effective_status: string;
   objective: string;
   compliant: boolean;

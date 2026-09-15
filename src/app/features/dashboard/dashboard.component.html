@@ -2,7 +2,7 @@
 <div class="passkey-banner" *ngIf="showPasskeyBanner()">
   <div class="passkey-banner-text"><strong>&#128275; Activa Touch ID</strong> para entrar sin email.</div>
   <div class="passkey-banner-actions">
-    <button class="pk-btn" (click)="registerPasskey()" [disabled]="passkeyRegistering()">{{ passkeyRegistering() ? 'Registrando...' : 'Activar' }}</button>
+    <button class="pk-btn" (click)="registerPasskey()" [disabled]="passkeyRegistering()">{{ passkeyRegistering() ? '...' : 'Activar' }}</button>
     <button class="pk-dismiss" (click)="dismissPasskeyBanner()">Despu&eacute;s</button>
   </div>
 </div>
@@ -11,77 +11,116 @@
 <div *ngIf="error" class="error-msg">{{ error }}</div>
 
 <ng-container *ngIf="!loading && !error">
+  <!-- Top bar -->
   <div class="top-bar">
     <div class="status-tabs">
       <button class="tab" [class.active]="statusFilter() === 'active'" (click)="setStatusFilter('active')">Activos <span class="tab-n">{{ activeCount }}</span></button>
       <button class="tab" [class.active]="statusFilter() === 'paused'" (click)="setStatusFilter('paused')">Pausados <span class="tab-n">{{ pausedCount }}</span></button>
       <button class="tab" [class.active]="statusFilter() === 'all'" (click)="setStatusFilter('all')">Todos</button>
     </div>
-    <input type="text" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" placeholder="Buscar anuncio o campa&ntilde;a..." class="search-input" />
-    <span class="result-count">{{ filteredAds.length }} anuncios</span>
+    <input type="text" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" placeholder="Buscar..." class="search-input" />
   </div>
 
+  <!-- KPI strip -->
   <div class="kpi-strip">
     <div class="kpi-item"><span class="kpi-label">Gasto 7d</span><span class="kpi-val">{{ fmtMoney(totalSpend) }}</span></div>
     <div class="kpi-item"><span class="kpi-label">Ingreso 7d</span><span class="kpi-val">{{ fmtMoney(totalValue) }}</span></div>
     <div class="kpi-item"><span class="kpi-label">Compras</span><span class="kpi-val">{{ totalPurchases | number }}</span></div>
     <div class="kpi-item"><span class="kpi-label">ROAS</span><span class="kpi-val">{{ fmt(blendedRoas) }}x</span></div>
     <div class="kpi-item"><span class="kpi-label">CPA</span><span class="kpi-val">{{ fmtMoney(blendedCpa) }}</span></div>
-    <div class="kpi-item" *ngIf="totalExcess > 0"><span class="kpi-label">Exceso</span><span class="kpi-val" style="color: #fca5a5;">{{ fmtMoney(totalExcess) }}</span></div>
+    <div class="kpi-item" *ngIf="totalExcess > 0"><span class="kpi-label">Exceso</span><span class="kpi-val excess">{{ fmtMoney(totalExcess) }}</span></div>
   </div>
 
-  <div class="ads-table-wrap">
-    <table class="ads-table">
+  <!-- Hierarchy table -->
+  <div class="tree-table-wrap">
+    <table class="tree-table">
       <thead>
         <tr>
-          <th class="col-name" (click)="sort('ad_name')">Anuncio{{ sortIcon('ad_name') }}</th>
-          <th>Status</th>
-          <th class="num" (click)="sort('purchases_default')">Compras{{ sortIcon('purchases_default') }}</th>
-          <th class="num" (click)="sort('roas_7d')">ROAS{{ sortIcon('roas_7d') }}</th>
-          <th class="num" (click)="sort('aov_7d')">AOV{{ sortIcon('aov_7d') }}</th>
-          <th class="num" (click)="sort('spend_7d')">Gasto 7d{{ sortIcon('spend_7d') }}</th>
-          <th class="num" (click)="sort('ctr_7d')">CTR{{ sortIcon('ctr_7d') }}</th>
-          <th class="num" (click)="sort('freq_recent')">Freq.{{ sortIcon('freq_recent') }}</th>
-          <th class="num" (click)="sort('cpa_default')">CPA{{ sortIcon('cpa_default') }}</th>
-          <th class="num" (click)="sort('roas_cum')">ROAS acum.{{ sortIcon('roas_cum') }}</th>
+          <th class="col-name">Nombre</th>
+          <th class="num">Compras</th>
+          <th class="num">ROAS</th>
+          <th class="num">AOV</th>
+          <th class="num">Gasto 7d</th>
+          <th class="num">CTR</th>
+          <th class="num">Freq.</th>
+          <th class="num">CPA</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let ad of paged" [class]="complianceClass(ad)">
-          <td class="col-name">
-            <div class="ad-name-cell">
-              <div class="ad-thumb" *ngIf="ad.thumbnail_url">
-                <img [src]="ad.thumbnail_url" alt="" loading="lazy" />
-              </div>
-              <div class="ad-thumb placeholder" *ngIf="!ad.thumbnail_url">&#9654;</div>
-              <div class="ad-info">
-                <span class="ad-link" (click)="goToAd(ad.ad_id)">{{ ad.ad_name }}</span>
-                <span class="ad-campaign">{{ ad.campaign_name }}</span>
-              </div>
-            </div>
-          </td>
-          <td><span class="badge" [ngClass]="statusClass(ad.effective_status)">{{ statusLabel(ad.effective_status) }}</span></td>
-          <td class="num">
-            <span class="confidence-icon" [title]="confidenceLabel(ad.purchases_default ?? ad.purchases_cum)">{{ confidenceIcon(ad.purchases_default ?? ad.purchases_cum) }}</span>
-            {{ ad.purchases_default ?? ad.purchases_7d ?? 0 }}
-          </td>
-          <td class="num" [style.color]="ad.roas_7d >= ad.roas_min_applied ? '#86efac' : ad.roas_7d > 0 ? '#fde047' : '#fca5a5'">
-            {{ fmt(ad.roas_7d) }}x
-          </td>
-          <td class="num">{{ fmtMoney(ad.aov_7d) }}</td>
-          <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
-          <td class="num">{{ fmtPct(ad.ctr_7d) }}</td>
-          <td class="num" [style.color]="ad.freq_recent > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.freq_recent, 1) }}</td>
-          <td class="num">{{ fmtMoney(ad.cpa_default ?? ad.cpa_7d) }}</td>
-          <td class="num">{{ fmt(ad.roas_cum) }}x</td>
-        </tr>
+        <ng-container *ngFor="let camp of campaigns">
+          <!-- Campaign row -->
+          <tr class="row-campaign" (click)="toggleCampaign(camp)">
+            <td class="col-name">
+              <span class="expand-icon">{{ camp.expanded ? '&#9660;' : '&#9654;' }}</span>
+              <span class="campaign-icon">&#128466;</span>
+              <span class="row-name">{{ camp.name }}</span>
+              <span class="row-count">{{ camp.metrics.adCount }} anuncios &middot; {{ camp.adsets.length }} ad sets</span>
+            </td>
+            <td class="num bold">{{ camp.metrics.purchases }}</td>
+            <td class="num bold">{{ fmt(camp.metrics.roas) }}x</td>
+            <td class="num">{{ fmtMoney(camp.metrics.aov) }}</td>
+            <td class="num bold">{{ fmtMoney(camp.metrics.spend_7d) }}</td>
+            <td class="num">{{ fmtPct(camp.metrics.ctr_avg) }}</td>
+            <td class="num">{{ fmt(camp.metrics.freq_avg, 1) }}</td>
+            <td class="num">{{ fmtMoney(camp.metrics.cpa) }}</td>
+          </tr>
+
+          <ng-container *ngIf="camp.expanded">
+            <ng-container *ngFor="let adset of camp.adsets">
+              <!-- Ad Set row -->
+              <tr class="row-adset" (click)="toggleAdset(adset)">
+                <td class="col-name">
+                  <span class="indent-1"></span>
+                  <span class="expand-icon">{{ adset.expanded ? '&#9660;' : '&#9654;' }}</span>
+                  <span class="adset-icon">&#128451;</span>
+                  <span class="row-name">{{ adset.name }}</span>
+                  <span class="row-count">{{ adset.metrics.adCount }} anuncios</span>
+                </td>
+                <td class="num">{{ adset.metrics.purchases }}</td>
+                <td class="num">{{ fmt(adset.metrics.roas) }}x</td>
+                <td class="num">{{ fmtMoney(adset.metrics.aov) }}</td>
+                <td class="num">{{ fmtMoney(adset.metrics.spend_7d) }}</td>
+                <td class="num">{{ fmtPct(adset.metrics.ctr_avg) }}</td>
+                <td class="num">{{ fmt(adset.metrics.freq_avg, 1) }}</td>
+                <td class="num">{{ fmtMoney(adset.metrics.cpa) }}</td>
+              </tr>
+
+              <ng-container *ngIf="adset.expanded">
+                <!-- Ad rows -->
+                <tr class="row-ad" *ngFor="let ad of adset.ads">
+                  <td class="col-name">
+                    <span class="indent-2"></span>
+                    <div class="ad-name-cell">
+                      <div class="ad-thumb" *ngIf="ad.thumbnail_url"><img [src]="ad.thumbnail_url" alt="" loading="lazy" /></div>
+                      <div class="ad-thumb placeholder" *ngIf="!ad.thumbnail_url">&#9654;</div>
+                      <div class="ad-info">
+                        <span class="ad-link" (click)="goToAd(ad.ad_id); $event.stopPropagation()">{{ ad.ad_name }}</span>
+                        <span class="ad-status">
+                          <span class="badge" [ngClass]="statusClass(ad.effective_status)">{{ statusLabel(ad.effective_status) }}</span>
+                          <span class="confidence-icon" [title]="ad.purchases_default ?? ad.purchases_cum">{{ confidenceIcon(ad.purchases_default ?? ad.purchases_cum) }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="num">{{ ad.purchases_default ?? ad.purchases_7d ?? 0 }}</td>
+                  <td class="num" [style.color]="ad.roas_7d >= ad.roas_min_applied ? '#86efac' : ad.roas_7d > 0 ? '#fde047' : '#fca5a5'">
+                    {{ fmt(ad.roas_7d) }}x
+                  </td>
+                  <td class="num">{{ fmtMoney(ad.aov_7d) }}</td>
+                  <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
+                  <td class="num">{{ fmtPct(ad.ctr_7d) }}</td>
+                  <td class="num" [style.color]="ad.freq_recent > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.freq_recent, 1) }}</td>
+                  <td class="num">{{ fmtMoney(ad.cpa_default ?? ad.cpa_7d) }}</td>
+                </tr>
+              </ng-container>
+            </ng-container>
+          </ng-container>
+        </ng-container>
       </tbody>
     </table>
   </div>
 
-  <div class="pager" *ngIf="pages > 1">
-    <button class="pager-btn" [disabled]="page <= 1" (click)="page = page - 1">&lsaquo;</button>
-    <span class="pager-info">{{ page }} / {{ pages }}</span>
-    <button class="pager-btn" [disabled]="page >= pages" (click)="page = page + 1">&rsaquo;</button>
+  <div *ngIf="campaigns.length === 0" style="color: #6b7280; padding: 24px; text-align: center;">
+    No hay anuncios para este filtro.
   </div>
 </ng-container>

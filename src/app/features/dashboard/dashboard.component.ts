@@ -10,6 +10,32 @@ import { DashboardAd } from '../../core/models/meta.models';
 type StatusFilter = 'all' | 'active' | 'paused';
 type SortDir = 'asc' | 'desc';
 
+interface AggMetrics {
+  spend_7d: number;
+  value_7d: number;
+  purchases: number;
+  roas: number;
+  cpa: number | null;
+  aov: number | null;
+  ctr_avg: number;
+  freq_avg: number;
+  adCount: number;
+}
+
+interface AdSetGroup {
+  name: string;
+  metrics: AggMetrics;
+  ads: DashboardAd[];
+  expanded: boolean;
+}
+
+interface CampaignGroup {
+  name: string;
+  metrics: AggMetrics;
+  adsets: AdSetGroup[];
+  expanded: boolean;
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -48,15 +74,8 @@ export class DashboardComponent implements OnInit {
   blendedCpa = 0;
   totalExcess = 0;
 
-  filteredAds: DashboardAd[] = [];
-
-  page = 1;
-  readonly PAGE_SIZE = 25;
-
-  get paged(): DashboardAd[] {
-    return this.filteredAds.slice((this.page - 1) * this.PAGE_SIZE, this.page * this.PAGE_SIZE);
-  }
-  get pages(): number { return Math.ceil(this.filteredAds.length / this.PAGE_SIZE); }
+  // Hierarchical data
+  campaigns: CampaignGroup[] = [];
 
   async ngOnInit() {
     try {
@@ -94,25 +113,105 @@ export class DashboardComponent implements OnInit {
       list = list.filter(a =>
         a.ad_name?.toLowerCase().includes(q) ||
         a.campaign_name?.toLowerCase().includes(q) ||
+        a.adset_name?.toLowerCase().includes(q) ||
         a.ad_id.includes(q)
       );
     }
 
+    // Sort ads
     const dir = this.sortDir === 'asc' ? 1 : -1;
     const field = this.sortField;
     list = [...list].sort((a: any, b: any) => ((a[field] ?? 0) - (b[field] ?? 0)) * dir);
 
-    this.filteredAds = list;
-    this.page = 1;
-
-    // Use default purchases for KPIs when available, fall back to 7d
+    // KPIs
     this.totalSpend = list.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
     this.totalValue = list.reduce((s, a) => s + (a.value_7d ?? 0), 0);
     this.totalPurchases = list.reduce((s, a) => s + (a.purchases_default ?? a.purchases_7d ?? 0), 0);
     this.blendedRoas = this.totalSpend > 0 ? this.totalValue / this.totalSpend : 0;
     this.blendedCpa = this.totalPurchases > 0 ? this.totalSpend / this.totalPurchases : 0;
     this.totalExcess = list.reduce((s, a) => s + (a.spend_excess > 0 ? a.spend_excess : 0), 0);
+
+    // Build hierarchy
+    this.campaigns = this.buildHierarchy(list);
   }
+
+  private buildHierarchy(ads: DashboardAd[]): CampaignGroup[] {
+    const campMap = new Map<string, Map<string, DashboardAd[]>>();
+
+    for (const ad of ads) {
+      const campKey = ad.campaign_name ?? 'Sin campaña';
+      const adsetKey = ad.adset_name ?? 'Sin ad set';
+
+      if (!campMap.has(campKey)) campMap.set(campKey, new Map());
+      const adsetMap = campMap.get(campKey)!;
+      if (!adsetMap.has(adsetKey)) adsetMap.set(adsetKey, []);
+      adsetMap.get(adsetKey)!.push(ad);
+    }
+
+    const campaigns: CampaignGroup[] = [];
+
+    for (const [campName, adsetMap] of campMap) {
+      const adsets: AdSetGroup[] = [];
+
+      for (const [adsetName, adsetAds] of adsetMap) {
+        adsets.push({
+          name: adsetName,
+          metrics: this.aggregate(adsetAds),
+          ads: adsetAds,
+          expanded: false
+        });
+      }
+
+      // Sort adsets by spend desc
+      adsets.sort((a, b) => b.metrics.spend_7d - a.metrics.spend_7d);
+
+      const allAdsInCamp = adsets.flatMap(a => a.ads);
+      campaigns.push({
+        name: campName,
+        metrics: this.aggregate(allAdsInCamp),
+        adsets,
+        expanded: false
+      });
+    }
+
+    // Sort campaigns by spend desc
+    campaigns.sort((a, b) => b.metrics.spend_7d - a.metrics.spend_7d);
+
+    // Auto-expand if only 1 campaign or if searching
+    if (campaigns.length === 1 || this.search()) {
+      campaigns.forEach(c => {
+        c.expanded = true;
+        if (c.adsets.length === 1 || this.search()) {
+          c.adsets.forEach(a => a.expanded = true);
+        }
+      });
+    }
+
+    return campaigns;
+  }
+
+  private aggregate(ads: DashboardAd[]): AggMetrics {
+    const spend = ads.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
+    const value = ads.reduce((s, a) => s + (a.value_7d ?? 0), 0);
+    const purchases = ads.reduce((s, a) => s + (a.purchases_default ?? a.purchases_7d ?? 0), 0);
+    const withCtr = ads.filter(a => a.ctr_7d > 0);
+    const withFreq = ads.filter(a => a.freq_recent > 0);
+
+    return {
+      spend_7d: spend,
+      value_7d: value,
+      purchases,
+      roas: spend > 0 ? value / spend : 0,
+      cpa: purchases > 0 ? spend / purchases : null,
+      aov: purchases > 0 ? value / purchases : null,
+      ctr_avg: withCtr.length > 0 ? withCtr.reduce((s, a) => s + a.ctr_7d, 0) / withCtr.length : 0,
+      freq_avg: withFreq.length > 0 ? withFreq.reduce((s, a) => s + a.freq_recent, 0) / withFreq.length : 0,
+      adCount: ads.length
+    };
+  }
+
+  toggleCampaign(c: CampaignGroup) { c.expanded = !c.expanded; }
+  toggleAdset(a: AdSetGroup) { a.expanded = !a.expanded; }
 
   sort(field: string) {
     if (this.sortField === field) {
@@ -126,7 +225,6 @@ export class DashboardComponent implements OnInit {
 
   onSearchChange(value: string) { this.search.set(value); this.applyFilters(); }
   setStatusFilter(f: StatusFilter) { this.statusFilter.set(f); this.applyFilters(); }
-
   goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
 
   statusLabel(s: string): string {
@@ -143,24 +241,11 @@ export class DashboardComponent implements OnInit {
     return 'badge-gray';
   }
 
-  complianceClass(ad: DashboardAd): string {
-    if (ad.compliant) return 'row-compliant';
-    if (ad.spend_excess > 0 && (ad.purchases_7d ?? 0) === 0) return 'row-kill';
-    return 'row-reduce';
-  }
-
   confidenceIcon(purchases: number | null): string {
     const p = purchases ?? 0;
     if (p >= 15) return '🛡️';
     if (p >= 10) return '⚠️';
     return '🔬';
-  }
-
-  confidenceLabel(purchases: number | null): string {
-    const p = purchases ?? 0;
-    if (p >= 15) return 'Confiable';
-    if (p >= 10) return 'Confianza mínima';
-    return 'Datos insuficientes';
   }
 
   fmt(n: number | null | undefined, d = 2): string {
