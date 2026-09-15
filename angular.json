@@ -51,6 +51,9 @@
                 "input": "public"
               }
             ],
+            "polyfills": [
+              "zone.js"
+            ],
             "styles": [
               "src/styles.scss"
             ]
@@ -60,7 +63,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "600kB",
                   "maximumError": "1MB"
                 },
                 {
