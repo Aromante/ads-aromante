@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, OnInit, ViewChild, ElementRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
@@ -24,72 +24,72 @@ export class AdDetailComponent implements OnInit {
 
   @ViewChild('lifecycleChart')
   set chartRef(ref: ElementRef<HTMLCanvasElement> | undefined) {
-    if (ref && !this.chart && this.rows.length > 0) {
+    if (ref && !this.chart && this.rows().length > 0) {
       this.canvasEl = ref.nativeElement;
       this.buildChart();
     }
   }
 
-  loading = true;
-  error = '';
+  loading = signal(true);
+  error = signal('');
   adId = '';
 
-  sc: AdScorecard | null = null;
-  rows: LifecycleClosed[] = [];
-  immatureStart: number | null = null;
-  crossoverDay: number | null = null;
+  sc = signal<AdScorecard | null>(null);
+  rows = signal<LifecycleClosed[]>([]);
+  immatureStart = signal<number | null>(null);
+  crossoverDay = signal<number | null>(null);
 
   async ngOnInit() {
     this.adId = this.route.snapshot.paramMap.get('adId') ?? '';
 
     try {
-      const [scorecardRes, lifecycle] = await Promise.all([
-        this.supa.client.from('meta_ad_scorecard').select('*').eq('ad_id', this.adId).single(),
-        this.supa.selectWithFilter<LifecycleClosed>(
-          'meta_ad_lifecycle_closed', '*',
-          q => q.eq('ad_id', this.adId).order('ad_day', { ascending: true })
-        )
-      ]);
+      // Use supa.run() to ensure everything resolves in zone
+      const scorecardData = await this.supa.selectWithFilter<AdScorecard>(
+        'meta_ad_scorecard', '*',
+        q => q.eq('ad_id', this.adId).limit(1)
+      );
+      const lifecycle = await this.supa.selectWithFilter<LifecycleClosed>(
+        'meta_ad_lifecycle_closed', '*',
+        q => q.eq('ad_id', this.adId).order('ad_day', { ascending: true })
+      );
 
-      if (scorecardRes.error) throw scorecardRes.error;
-      this.sc = scorecardRes.data as AdScorecard;
-      this.rows = lifecycle;
+      if (scorecardData.length > 0) this.sc.set(scorecardData[0]);
+      this.rows.set(lifecycle);
 
-      if (this.rows.length > 0) {
-        // Crossover: first day where roas_7d < roas_cum after day 7
-        for (let i = 7; i < this.rows.length; i++) {
-          const r = this.rows[i];
+      if (lifecycle.length > 0) {
+        for (let i = 7; i < lifecycle.length; i++) {
+          const r = lifecycle[i];
           if ((r.roas_7d ?? 0) > 0 && (r.roas_7d ?? 0) < (r.roas_cum ?? 0)) {
-            this.crossoverDay = r.ad_day;
+            this.crossoverDay.set(r.ad_day);
             break;
           }
         }
-
-        // Immature zone
-        for (let i = this.rows.length - 1; i >= 0; i--) {
-          if (this.rows[i].matured) {
-            if (i < this.rows.length - 1) this.immatureStart = this.rows[i + 1].ad_day;
+        for (let i = lifecycle.length - 1; i >= 0; i--) {
+          if (lifecycle[i].matured) {
+            if (i < lifecycle.length - 1) this.immatureStart.set(lifecycle[i + 1].ad_day);
             break;
           }
         }
       }
     } catch (e: any) {
-      this.error = e.message ?? 'Error loading ad';
+      this.error.set(e.message ?? 'Error loading ad');
     } finally {
-      this.loading = false;
+      this.loading.set(false);
     }
   }
 
   private buildChart() {
-    if (!this.canvasEl || this.rows.length === 0) return;
+    const data = this.rows();
+    if (!this.canvasEl || data.length === 0) return;
 
-    const labels = this.rows.map(r => r.ad_day);
-    const spendData = this.rows.map(r => r.spend_day ?? 0);
-    const roasCum = this.rows.map(r => r.roas_cum ?? 0);
-    const roas7d = this.rows.map(r => r.roas_7d ?? 0);
-    const spendBg = this.rows.map(r => r.matured ? 'rgba(249,115,22,0.18)' : 'rgba(107,114,128,0.12)');
+    const labels = data.map(r => r.ad_day);
+    const spendData = data.map(r => r.spend_day ?? 0);
+    const roasCum = data.map(r => r.roas_cum ?? 0);
+    const roas7d = data.map(r => r.roas_7d ?? 0);
+    const spendBg = data.map(r => r.matured ? 'rgba(249,115,22,0.18)' : 'rgba(107,114,128,0.12)');
 
-    const immIdx = this.immatureStart !== null ? labels.indexOf(this.immatureStart) : -1;
+    const imm = this.immatureStart();
+    const immIdx = imm !== null ? labels.indexOf(imm) : -1;
 
     const immPlugin = {
       id: 'immatureZone',

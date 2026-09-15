@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -70,59 +70,46 @@ export class DashboardComponent implements OnInit {
   passkeyRegistering = signal(false);
   passkeyError = signal('');
 
-  loading = true;
-  error = '';
+  loading = signal(true);
+  error = signal('');
 
-  private activeAds: DashAd[] = [];
-  private pausedAds: DashAd[] = [];
+  private allAds = signal<DashAd[]>([]);
 
   search = signal('');
   statusFilter = signal<StatusFilter>('active');
 
-  activeCount = 0;
-  pausedCount = 0;
+  activeCount = signal(0);
+  pausedCount = signal(0);
 
-  totalGasto = 0;
-  totalCompras = 0;
-  blendedRoas = 0;
-  blendedCpa = 0;
+  totalGasto = signal(0);
+  totalCompras = signal(0);
+  blendedRoas = signal(0);
+  blendedCpa = signal(0);
 
-  campaigns: CampaignGroup[] = [];
+  campaigns = signal<CampaignGroup[]>([]);
 
   async ngOnInit() {
     try {
-      let ads = this.cache.get<DashAd[]>('dash_ads');
+      let ads = this.cache.get<DashAd[]>('dash_v2');
       if (!ads) {
-        // Scorecard has only ads with enough data (all currently active)
         const scorecards = await this.supa.select<any>('meta_ad_scorecard');
-
         const dims = await this.supa.selectWithFilter<any>(
           'meta_ads_dim',
           'ad_id, adset_name, effective_status, thumbnail_url',
           q => q.is('valid_to', null)
         );
-
         const dimMap = new Map(dims.map((d: any) => [d.ad_id, d]));
 
         ads = scorecards.map((s: any) => {
           const d = dimMap.get(s.ad_id);
-          return {
-            ...s,
-            adset_name: d?.adset_name ?? 'Sin ad set',
-            effective_status: d?.effective_status ?? 'UNKNOWN',
-            thumbnail_url: d?.thumbnail_url ?? null
-          } as DashAd;
+          return { ...s, adset_name: d?.adset_name ?? 'Sin ad set', effective_status: d?.effective_status ?? 'UNKNOWN', thumbnail_url: d?.thumbnail_url ?? null } as DashAd;
         });
-
-        this.cache.set('dash_ads', ads);
+        this.cache.set('dash_v2', ads);
       }
 
-      // scorecard currently only has active ads
-      this.activeAds = ads.filter(a => a.effective_status === 'ACTIVE');
-      this.pausedAds = ads.filter(a => a.effective_status !== 'ACTIVE');
-      this.activeCount = this.activeAds.length;
-      this.pausedCount = this.pausedAds.length;
-
+      this.allAds.set(ads);
+      this.activeCount.set(ads.filter(a => a.effective_status === 'ACTIVE').length);
+      this.pausedCount.set(ads.length - this.activeCount());
       this.buildView();
 
       if (window.PublicKeyCredential) {
@@ -130,9 +117,9 @@ export class DashboardComponent implements OnInit {
         this.showPasskeyBanner.set(!has);
       }
     } catch (e: any) {
-      this.error = e.message ?? 'Error loading data';
+      this.error.set(e.message ?? 'Error loading data');
     } finally {
-      this.loading = false;
+      this.loading.set(false);
     }
   }
 
@@ -148,11 +135,10 @@ export class DashboardComponent implements OnInit {
 
   private buildView() {
     const sf = this.statusFilter();
-    let list: DashAd[];
+    let list = this.allAds();
 
-    if (sf === 'active') list = this.activeAds;
-    else if (sf === 'paused') list = this.pausedAds;
-    else list = [...this.activeAds, ...this.pausedAds];
+    if (sf === 'active') list = list.filter(a => a.effective_status === 'ACTIVE');
+    else if (sf === 'paused') list = list.filter(a => a.effective_status !== 'ACTIVE');
 
     const q = this.search().toLowerCase();
     if (q) {
@@ -164,18 +150,18 @@ export class DashboardComponent implements OnInit {
       );
     }
 
-    // KPIs
-    this.totalGasto = list.reduce((s, a) => s + Number(a.gasto ?? 0), 0);
-    this.totalCompras = list.reduce((s, a) => s + (a.compras_default ?? 0), 0);
-    this.blendedRoas = this.totalCompras > 0 ? list.reduce((s, a) => s + Number(a.roas_default ?? 0) * (a.compras_default ?? 0), 0) / this.totalCompras : 0;
-    this.blendedCpa = this.totalCompras > 0 ? this.totalGasto / this.totalCompras : 0;
+    const gasto = list.reduce((s, a) => s + Number(a.gasto ?? 0), 0);
+    const compras = list.reduce((s, a) => s + (a.compras_default ?? 0), 0);
+    this.totalGasto.set(gasto);
+    this.totalCompras.set(compras);
+    this.blendedRoas.set(compras > 0 ? list.reduce((s, a) => s + Number(a.roas_default ?? 0) * (a.compras_default ?? 0), 0) / compras : 0);
+    this.blendedCpa.set(compras > 0 ? gasto / compras : 0);
 
-    this.campaigns = this.buildHierarchy(list);
+    this.campaigns.set(this.buildHierarchy(list));
   }
 
   private buildHierarchy(ads: DashAd[]): CampaignGroup[] {
     const campMap = new Map<string, Map<string, DashAd[]>>();
-
     for (const ad of ads) {
       const ck = ad.campaign_name ?? 'Sin campaña';
       const ak = ad.adset_name ?? 'Sin ad set';
@@ -193,22 +179,13 @@ export class DashboardComponent implements OnInit {
         adsets.push({ name: adsetName, metrics: this.aggregate(adsetAds), ads: adsetAds, expanded: false });
       }
       adsets.sort((a, b) => b.metrics.gasto - a.metrics.gasto);
-      campaigns.push({
-        name: campName,
-        metrics: this.aggregate(adsets.flatMap(a => a.ads)),
-        adsets,
-        expanded: false
-      });
+      campaigns.push({ name: campName, metrics: this.aggregate(adsets.flatMap(a => a.ads)), adsets, expanded: false });
     }
     campaigns.sort((a, b) => b.metrics.gasto - a.metrics.gasto);
 
     if (campaigns.length <= 4 || this.search()) {
-      campaigns.forEach(c => {
-        c.expanded = true;
-        if (c.adsets.length <= 4 || this.search()) c.adsets.forEach(a => a.expanded = true);
-      });
+      campaigns.forEach(c => { c.expanded = true; if (c.adsets.length <= 4 || this.search()) c.adsets.forEach(a => a.expanded = true); });
     }
-
     return campaigns;
   }
 

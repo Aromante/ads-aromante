@@ -7,24 +7,24 @@
   </div>
 </div>
 
-<div *ngIf="loading" class="loading">Cargando datos...</div>
-<div *ngIf="error" class="error-msg">{{ error }}</div>
+<div *ngIf="loading()" class="loading">Cargando datos...</div>
+<div *ngIf="error()" class="error-msg">{{ error() }}</div>
 
-<ng-container *ngIf="!loading && !error">
+<ng-container *ngIf="!loading() && !error()">
   <div class="top-bar">
     <div class="status-tabs">
-      <button class="tab" [class.active]="statusFilter() === 'active'" (click)="setStatusFilter('active')">Activos <span class="tab-n">{{ activeCount }}</span></button>
-      <button class="tab" [class.active]="statusFilter() === 'paused'" (click)="setStatusFilter('paused')">Pausados <span class="tab-n">{{ pausedCount }}</span></button>
+      <button class="tab" [class.active]="statusFilter() === 'active'" (click)="setStatusFilter('active')">Activos <span class="tab-n">{{ activeCount() }}</span></button>
+      <button class="tab" [class.active]="statusFilter() === 'paused'" (click)="setStatusFilter('paused')">Pausados <span class="tab-n">{{ pausedCount() }}</span></button>
       <button class="tab" [class.active]="statusFilter() === 'all'" (click)="setStatusFilter('all')">Todos</button>
     </div>
     <input type="text" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" placeholder="Buscar..." class="search-input" />
   </div>
 
   <div class="kpi-strip">
-    <div class="kpi-item"><span class="kpi-label">Gasto total</span><span class="kpi-val">{{ fmtMoney(totalGasto) }}</span></div>
-    <div class="kpi-item"><span class="kpi-label">Compras</span><span class="kpi-val">{{ totalCompras | number }}</span></div>
-    <div class="kpi-item"><span class="kpi-label">ROAS</span><span class="kpi-val">{{ fmt(blendedRoas) }}x</span></div>
-    <div class="kpi-item"><span class="kpi-label">CPA</span><span class="kpi-val">{{ fmtMoney(blendedCpa) }}</span></div>
+    <div class="kpi-item"><span class="kpi-label">Gasto total</span><span class="kpi-val">{{ fmtMoney(totalGasto()) }}</span></div>
+    <div class="kpi-item"><span class="kpi-label">Compras</span><span class="kpi-val">{{ totalCompras() | number }}</span></div>
+    <div class="kpi-item"><span class="kpi-label">ROAS</span><span class="kpi-val">{{ fmt(blendedRoas()) }}x</span></div>
+    <div class="kpi-item"><span class="kpi-label">CPA</span><span class="kpi-val">{{ fmtMoney(blendedCpa()) }}</span></div>
   </div>
 
   <div class="tree-table-wrap">
@@ -42,8 +42,7 @@
         </tr>
       </thead>
       <tbody>
-        <ng-container *ngFor="let camp of campaigns">
-          <!-- Campaign -->
+        <ng-container *ngFor="let camp of campaigns()">
           <tr class="row-campaign" (click)="toggleCampaign(camp)">
             <td class="col-name">
               <span class="expand-icon">{{ camp.expanded ? '&#9660;' : '&#9654;' }}</span>
@@ -61,7 +60,6 @@
 
           <ng-container *ngIf="camp.expanded">
             <ng-container *ngFor="let adset of camp.adsets">
-              <!-- Ad Set -->
               <tr class="row-adset" (click)="toggleAdset(adset)">
                 <td class="col-name">
                   <span class="indent-1"></span>
@@ -79,7 +77,6 @@
               </tr>
 
               <ng-container *ngIf="adset.expanded">
-                <!-- Ads -->
                 <tr class="row-ad" *ngFor="let ad of adset.ads">
                   <td class="col-name">
                     <span class="indent-2"></span>
@@ -88,17 +85,12 @@
                       <div class="ad-thumb placeholder" *ngIf="!ad.thumbnail_url">&#9654;</div>
                       <div class="ad-info">
                         <span class="ad-link" (click)="goToAd(ad.ad_id); $event.stopPropagation()">{{ ad.ad_name }}</span>
-                        <span class="ad-meta">
-                          {{ ad.confiable ? '&#128737;' : '&#128300;' }}
-                          {{ ad.dias_vida }}d
-                        </span>
+                        <span class="ad-meta">{{ ad.confiable ? '&#128737;' : '&#128300;' }} {{ ad.dias_vida }}d</span>
                       </div>
                     </div>
                   </td>
                   <td class="num">{{ ad.compras_default }}</td>
-                  <td class="num" [style.color]="ad.roas_default >= 5.5 ? '#86efac' : ad.roas_default >= 1.41 ? '#fde047' : '#fca5a5'">
-                    {{ fmt(ad.roas_default) }}x
-                  </td>
+                  <td class="num" [style.color]="ad.roas_default >= 5.5 ? '#86efac' : ad.roas_default >= 1.41 ? '#fde047' : '#fca5a5'">{{ fmt(ad.roas_default) }}x</td>
                   <td class="num">{{ fmtMoney(ad.cpa_default) }}</td>
                   <td class="num">{{ fmtMoney(ad.aov_default) }}</td>
                   <td class="num">{{ fmtMoney(ad.gasto) }}</td>
@@ -113,7 +105,7 @@
     </table>
   </div>
 
-  <div *ngIf="campaigns.length === 0" style="color: #6b7280; padding: 24px; text-align: center;">
+  <div *ngIf="campaigns().length === 0" style="color: #6b7280; padding: 24px; text-align: center;">
     No hay anuncios para este filtro.
   </div>
 </ng-container>
