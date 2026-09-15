@@ -90,7 +90,7 @@ export class DashboardComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      let ads = this.cache.get<DashAd[]>('dash_v2');
+      let ads = this.cache.get<DashAd[]>('dash_v3');
       if (!ads) {
         const scorecards = await this.supa.select<any>('meta_ad_scorecard');
         const dims = await this.supa.selectWithFilter<any>(
@@ -104,7 +104,7 @@ export class DashboardComponent implements OnInit {
           const d = dimMap.get(s.ad_id);
           return { ...s, adset_name: d?.adset_name ?? 'Sin ad set', effective_status: d?.effective_status ?? 'UNKNOWN', thumbnail_url: d?.thumbnail_url ?? null } as DashAd;
         });
-        this.cache.set('dash_v2', ads);
+        this.cache.set('dash_v3', ads);
       }
 
       this.allAds.set(ads);
