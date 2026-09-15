@@ -5,18 +5,36 @@ import { Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
 import { CacheService } from '../../core/services/cache.service';
 import { PasskeyService } from '../../core/services/passkey.service';
-import { DashboardAd } from '../../core/models/meta.models';
+
+interface DashAd {
+  ad_id: string;
+  ad_name: string;
+  campaign_name: string;
+  adset_name: string;
+  effective_status: string;
+  thumbnail_url: string | null;
+  decision: string;
+  confiable: boolean;
+  compras_default: number;
+  roas_default: number;
+  cpa_default: number;
+  aov_default: number;
+  roas_clic: number;
+  roas_clic_7d: number | null;
+  freq_7d: number;
+  freq_30d: number;
+  gasto: number;
+  dias_vida: number;
+}
 
 type StatusFilter = 'all' | 'active' | 'paused';
 
 interface AggMetrics {
-  spend_7d: number;
-  value_7d: number;
-  purchases: number;
+  gasto: number;
+  compras: number;
   roas: number;
   cpa: number | null;
   aov: number | null;
-  ctr_avg: number;
   freq_avg: number;
   adCount: number;
 }
@@ -24,7 +42,7 @@ interface AggMetrics {
 interface AdSetGroup {
   name: string;
   metrics: AggMetrics;
-  ads: DashboardAd[];
+  ads: DashAd[];
   expanded: boolean;
 }
 
@@ -48,7 +66,6 @@ export class DashboardComponent implements OnInit {
   private router = inject(Router);
   private passkey = inject(PasskeyService);
 
-
   showPasskeyBanner = signal(false);
   passkeyRegistering = signal(false);
   passkeyError = signal('');
@@ -57,9 +74,8 @@ export class DashboardComponent implements OnInit {
   loadingMore = false;
   error = '';
 
-  // Data stores by status
-  private activeAds: DashboardAd[] = [];
-  private pausedAds: DashboardAd[] = [];
+  private activeAds: DashAd[] = [];
+  private pausedAds: DashAd[] = [];
   private pausedLoaded = false;
 
   search = signal('');
@@ -68,47 +84,65 @@ export class DashboardComponent implements OnInit {
   activeCount = 0;
   pausedCount = 0;
 
-  // KPIs
-  totalSpend = 0;
-  totalValue = 0;
-  totalPurchases = 0;
+  totalGasto = 0;
+  totalCompras = 0;
   blendedRoas = 0;
   blendedCpa = 0;
 
-  // Hierarchical data
   campaigns: CampaignGroup[] = [];
 
   async ngOnInit() {
     try {
-      // Load only ACTIVE ads first (~40 rows, fast)
-      let active = this.cache.get<DashboardAd[]>('dash_active');
+      let active = this.cache.get<DashAd[]>('dash_active');
       if (!active) {
-        active = await this.supa.selectWithFilter<DashboardAd>(
-          'meta_dashboard_mat', '*',
-          q => q.eq('effective_status', 'ACTIVE')
-        );
+        // Join scorecard + dim for active ads
+        const { data, error } = await this.supa.client
+          .from('meta_ad_scorecard')
+          .select(`
+            ad_id, ad_name, campaign_name, decision, confiable,
+            compras_default, roas_default, cpa_default, aov_default,
+            roas_clic, roas_clic_7d, freq_7d, freq_30d, gasto, dias_vida
+          `);
+        if (error) throw error;
+
+        // Get dim data for adset_name, effective_status, thumbnail_url
+        const { data: dims, error: dimErr } = await this.supa.client
+          .from('meta_ads_dim')
+          .select('ad_id, adset_name, effective_status, thumbnail_url')
+          .is('valid_to', null);
+        if (dimErr) throw dimErr;
+
+        const dimMap = new Map((dims ?? []).map(d => [d.ad_id, d]));
+
+        const all = (data ?? []).map(s => {
+          const d = dimMap.get(s.ad_id);
+          return {
+            ...s,
+            adset_name: d?.adset_name ?? 'Sin ad set',
+            effective_status: d?.effective_status ?? 'UNKNOWN',
+            thumbnail_url: d?.thumbnail_url ?? null
+          } as DashAd;
+        });
+
+        active = all.filter(a => a.effective_status === 'ACTIVE');
+        this.pausedAds = all.filter(a => a.effective_status !== 'ACTIVE');
+        this.pausedLoaded = true;
+
         this.cache.set('dash_active', active);
+        this.cache.set('dash_paused', this.pausedAds);
       }
+
       this.activeAds = active;
       this.activeCount = active.length;
 
-      // Get paused count without loading all data
-      const counts = await this.supa.selectWithFilter<{ effective_status: string }>(
-        'meta_dashboard_mat', 'effective_status',
-        q => q.neq('effective_status', 'ACTIVE').limit(1)
-      );
-      // Use a count RPC or just estimate from the total
-      const totalCount = this.cache.get<number>('dash_total_count');
-      if (totalCount) {
-        this.pausedCount = totalCount - this.activeCount;
-      } else {
-        // Quick count query
-        const all = await this.supa.selectWithFilter<{ ad_id: string }>(
-          'meta_dashboard_mat', 'ad_id', q => q
-        );
-        this.pausedCount = all.length - this.activeCount;
-        this.cache.set('dash_total_count', all.length);
+      if (!this.pausedLoaded) {
+        const paused = this.cache.get<DashAd[]>('dash_paused');
+        if (paused) {
+          this.pausedAds = paused;
+          this.pausedLoaded = true;
+        }
       }
+      this.pausedCount = this.pausedAds.length;
 
       this.buildView();
 
@@ -125,29 +159,6 @@ export class DashboardComponent implements OnInit {
 
   async setStatusFilter(f: StatusFilter) {
     this.statusFilter.set(f);
-
-    // Lazy load paused ads when needed
-    if ((f === 'paused' || f === 'all') && !this.pausedLoaded) {
-      this.loadingMore = true;
-      try {
-        let paused = this.cache.get<DashboardAd[]>('dash_paused');
-        if (!paused) {
-          paused = await this.supa.selectWithFilter<DashboardAd>(
-            'meta_dashboard_mat', '*',
-            q => q.neq('effective_status', 'ACTIVE')
-          );
-          this.cache.set('dash_paused', paused);
-        }
-        this.pausedAds = paused;
-        this.pausedCount = paused.length;
-        this.pausedLoaded = true;
-      } catch (e: any) {
-        this.error = e.message ?? 'Error loading paused ads';
-      } finally {
-        this.loadingMore = false;
-      }
-    }
-
     this.buildView();
   }
 
@@ -158,13 +169,12 @@ export class DashboardComponent implements OnInit {
 
   private buildView() {
     const sf = this.statusFilter();
-    let list: DashboardAd[];
+    let list: DashAd[];
 
     if (sf === 'active') list = this.activeAds;
     else if (sf === 'paused') list = this.pausedAds;
     else list = [...this.activeAds, ...this.pausedAds];
 
-    // Search
     const q = this.search().toLowerCase();
     if (q) {
       list = list.filter(a =>
@@ -176,127 +186,85 @@ export class DashboardComponent implements OnInit {
     }
 
     // KPIs
-    this.totalSpend = list.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
-    this.totalValue = list.reduce((s, a) => s + (a.value_7d ?? 0), 0);
-    this.totalPurchases = list.reduce((s, a) => s + (a.purchases_default ?? a.purchases_7d ?? 0), 0);
-    this.blendedRoas = this.totalSpend > 0 ? this.totalValue / this.totalSpend : 0;
-    this.blendedCpa = this.totalPurchases > 0 ? this.totalSpend / this.totalPurchases : 0;
+    this.totalGasto = list.reduce((s, a) => s + Number(a.gasto ?? 0), 0);
+    this.totalCompras = list.reduce((s, a) => s + (a.compras_default ?? 0), 0);
+    this.blendedRoas = this.totalCompras > 0 ? list.reduce((s, a) => s + Number(a.roas_default ?? 0) * (a.compras_default ?? 0), 0) / this.totalCompras : 0;
+    this.blendedCpa = this.totalCompras > 0 ? this.totalGasto / this.totalCompras : 0;
 
     this.campaigns = this.buildHierarchy(list);
   }
 
-  private buildHierarchy(ads: DashboardAd[]): CampaignGroup[] {
-    const campMap = new Map<string, Map<string, DashboardAd[]>>();
+  private buildHierarchy(ads: DashAd[]): CampaignGroup[] {
+    const campMap = new Map<string, Map<string, DashAd[]>>();
 
     for (const ad of ads) {
-      const campKey = ad.campaign_name ?? 'Sin campaña';
-      const adsetKey = ad.adset_name ?? 'Sin ad set';
-
-      if (!campMap.has(campKey)) campMap.set(campKey, new Map());
-      const adsetMap = campMap.get(campKey)!;
-      if (!adsetMap.has(adsetKey)) adsetMap.set(adsetKey, []);
-      adsetMap.get(adsetKey)!.push(ad);
+      const ck = ad.campaign_name ?? 'Sin campaña';
+      const ak = ad.adset_name ?? 'Sin ad set';
+      if (!campMap.has(ck)) campMap.set(ck, new Map());
+      const am = campMap.get(ck)!;
+      if (!am.has(ak)) am.set(ak, []);
+      am.get(ak)!.push(ad);
     }
 
     const campaigns: CampaignGroup[] = [];
-
     for (const [campName, adsetMap] of campMap) {
       const adsets: AdSetGroup[] = [];
       for (const [adsetName, adsetAds] of adsetMap) {
-        // Sort ads by spend desc within adset
-        adsetAds.sort((a, b) => (b.spend_7d ?? 0) - (a.spend_7d ?? 0));
-        adsets.push({
-          name: adsetName,
-          metrics: this.aggregate(adsetAds),
-          ads: adsetAds,
-          expanded: false
-        });
+        adsetAds.sort((a, b) => Number(b.gasto ?? 0) - Number(a.gasto ?? 0));
+        adsets.push({ name: adsetName, metrics: this.aggregate(adsetAds), ads: adsetAds, expanded: false });
       }
-      adsets.sort((a, b) => b.metrics.spend_7d - a.metrics.spend_7d);
-
-      const allAdsInCamp = adsets.flatMap(a => a.ads);
+      adsets.sort((a, b) => b.metrics.gasto - a.metrics.gasto);
       campaigns.push({
         name: campName,
-        metrics: this.aggregate(allAdsInCamp),
+        metrics: this.aggregate(adsets.flatMap(a => a.ads)),
         adsets,
         expanded: false
       });
     }
+    campaigns.sort((a, b) => b.metrics.gasto - a.metrics.gasto);
 
-    campaigns.sort((a, b) => b.metrics.spend_7d - a.metrics.spend_7d);
-
-    // Auto-expand if few items or searching
-    if (campaigns.length <= 3 || this.search()) {
+    if (campaigns.length <= 4 || this.search()) {
       campaigns.forEach(c => {
         c.expanded = true;
-        if (c.adsets.length <= 3 || this.search()) {
-          c.adsets.forEach(a => a.expanded = true);
-        }
+        if (c.adsets.length <= 4 || this.search()) c.adsets.forEach(a => a.expanded = true);
       });
     }
 
     return campaigns;
   }
 
-  private aggregate(ads: DashboardAd[]): AggMetrics {
-    const spend = ads.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
-    const value = ads.reduce((s, a) => s + (a.value_7d ?? 0), 0);
-    const purchases = ads.reduce((s, a) => s + (a.purchases_default ?? a.purchases_7d ?? 0), 0);
-    const withCtr = ads.filter(a => (a.ctr_7d ?? 0) > 0);
-    const withFreq = ads.filter(a => (a.freq_recent ?? 0) > 0);
-
+  private aggregate(ads: DashAd[]): AggMetrics {
+    const gasto = ads.reduce((s, a) => s + Number(a.gasto ?? 0), 0);
+    const compras = ads.reduce((s, a) => s + (a.compras_default ?? 0), 0);
+    const wFreq = ads.filter(a => (a.freq_30d ?? 0) > 0);
     return {
-      spend_7d: spend,
-      value_7d: value,
-      purchases,
-      roas: spend > 0 ? value / spend : 0,
-      cpa: purchases > 0 ? spend / purchases : null,
-      aov: purchases > 0 ? value / purchases : null,
-      ctr_avg: withCtr.length > 0 ? withCtr.reduce((s, a) => s + a.ctr_7d, 0) / withCtr.length : 0,
-      freq_avg: withFreq.length > 0 ? withFreq.reduce((s, a) => s + a.freq_recent, 0) / withFreq.length : 0,
+      gasto, compras,
+      roas: compras > 0 ? ads.reduce((s, a) => s + Number(a.roas_default ?? 0) * (a.compras_default ?? 0), 0) / compras : 0,
+      cpa: compras > 0 ? gasto / compras : null,
+      aov: compras > 0 ? ads.reduce((s, a) => s + Number(a.aov_default ?? 0) * (a.compras_default ?? 0), 0) / compras : null,
+      freq_avg: wFreq.length > 0 ? wFreq.reduce((s, a) => s + Number(a.freq_30d), 0) / wFreq.length : 0,
       adCount: ads.length
     };
   }
 
   toggleCampaign(c: CampaignGroup) { c.expanded = !c.expanded; }
   toggleAdset(a: AdSetGroup) { a.expanded = !a.expanded; }
-
   goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
 
-  statusLabel(s: string): string {
-    const m: Record<string, string> = {
-      'ACTIVE': 'Activo', 'PAUSED': 'Pausado', 'CAMPAIGN_PAUSED': 'Camp. pausada',
-      'ADSET_PAUSED': 'Adset pausado', 'DISAPPROVED': 'Rechazado', 'WITH_ISSUES': 'Con problemas'
-    };
-    return m[s] ?? s;
-  }
-
-  statusClass(s: string): string {
-    if (s === 'ACTIVE') return 'badge-green';
-    if (s === 'DISAPPROVED' || s === 'WITH_ISSUES') return 'badge-red';
-    return 'badge-gray';
-  }
-
-  confidenceIcon(purchases: number | null): string {
-    const p = purchases ?? 0;
-    if (p >= 15) return '🛡️';
-    if (p >= 10) return '⚠️';
-    return '🔬';
+  decisionClass(d: string): string {
+    if (d?.includes('ESCALAR') || d?.includes('SOSTENER')) return 'dec-green';
+    if (d?.includes('APAGAR')) return 'dec-red';
+    return 'dec-yellow';
   }
 
   fmt(n: number | null | undefined, d = 2): string {
     if (n == null) return '—';
-    return n.toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
+    return Number(n).toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
   fmtMoney(n: number | null | undefined): string {
     if (n == null) return '—';
-    return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-  }
-
-  fmtPct(n: number | null | undefined): string {
-    if (n == null) return '—';
-    return n.toFixed(2) + '%';
+    return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   }
 
   async registerPasskey() {

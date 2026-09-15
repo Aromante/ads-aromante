@@ -1,6 +1,6 @@
 <!-- Passkey banner -->
 <div class="passkey-banner" *ngIf="showPasskeyBanner()">
-  <div class="passkey-banner-text"><strong>&#128275; Activa Touch ID</strong> para entrar sin email.</div>
+  <div class="passkey-banner-text"><strong>&#128275; Activa Touch ID</strong></div>
   <div class="passkey-banner-actions">
     <button class="pk-btn" (click)="registerPasskey()" [disabled]="passkeyRegistering()">{{ passkeyRegistering() ? '...' : 'Activar' }}</button>
     <button class="pk-dismiss" (click)="dismissPasskeyBanner()">Despu&eacute;s</button>
@@ -11,7 +11,6 @@
 <div *ngIf="error" class="error-msg">{{ error }}</div>
 
 <ng-container *ngIf="!loading && !error">
-  <!-- Top bar -->
   <div class="top-bar">
     <div class="status-tabs">
       <button class="tab" [class.active]="statusFilter() === 'active'" (click)="setStatusFilter('active')">Activos <span class="tab-n">{{ activeCount }}</span></button>
@@ -21,18 +20,13 @@
     <input type="text" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" placeholder="Buscar..." class="search-input" />
   </div>
 
-  <div *ngIf="loadingMore" class="loading-inline">Cargando anuncios pausados...</div>
-
-  <!-- KPI strip -->
   <div class="kpi-strip">
-    <div class="kpi-item"><span class="kpi-label">Gasto 7d</span><span class="kpi-val">{{ fmtMoney(totalSpend) }}</span></div>
-    <div class="kpi-item"><span class="kpi-label">Ingreso 7d</span><span class="kpi-val">{{ fmtMoney(totalValue) }}</span></div>
-    <div class="kpi-item"><span class="kpi-label">Compras</span><span class="kpi-val">{{ totalPurchases | number }}</span></div>
+    <div class="kpi-item"><span class="kpi-label">Gasto total</span><span class="kpi-val">{{ fmtMoney(totalGasto) }}</span></div>
+    <div class="kpi-item"><span class="kpi-label">Compras</span><span class="kpi-val">{{ totalCompras | number }}</span></div>
     <div class="kpi-item"><span class="kpi-label">ROAS</span><span class="kpi-val">{{ fmt(blendedRoas) }}x</span></div>
     <div class="kpi-item"><span class="kpi-label">CPA</span><span class="kpi-val">{{ fmtMoney(blendedCpa) }}</span></div>
   </div>
 
-  <!-- Hierarchy table -->
   <div class="tree-table-wrap">
     <table class="tree-table">
       <thead>
@@ -40,54 +34,52 @@
           <th class="col-name">Nombre</th>
           <th class="num">Compras</th>
           <th class="num">ROAS</th>
-          <th class="num">AOV</th>
-          <th class="num">Gasto 7d</th>
-          <th class="num">CTR</th>
-          <th class="num">Freq.</th>
           <th class="num">CPA</th>
+          <th class="num">AOV</th>
+          <th class="num">Gasto</th>
+          <th class="num">Freq. 30d</th>
+          <th>Decisi&oacute;n</th>
         </tr>
       </thead>
       <tbody>
         <ng-container *ngFor="let camp of campaigns">
-          <!-- Campaign row -->
+          <!-- Campaign -->
           <tr class="row-campaign" (click)="toggleCampaign(camp)">
             <td class="col-name">
               <span class="expand-icon">{{ camp.expanded ? '&#9660;' : '&#9654;' }}</span>
-              <span class="campaign-icon">&#128466;</span>
               <span class="row-name">{{ camp.name }}</span>
-              <span class="row-count">{{ camp.metrics.adCount }} anuncios &middot; {{ camp.adsets.length }} ad sets</span>
+              <span class="row-count">{{ camp.metrics.adCount }} ads &middot; {{ camp.adsets.length }} ad sets</span>
             </td>
-            <td class="num bold">{{ camp.metrics.purchases }}</td>
+            <td class="num bold">{{ camp.metrics.compras }}</td>
             <td class="num bold">{{ fmt(camp.metrics.roas) }}x</td>
-            <td class="num">{{ fmtMoney(camp.metrics.aov) }}</td>
-            <td class="num bold">{{ fmtMoney(camp.metrics.spend_7d) }}</td>
-            <td class="num">{{ fmtPct(camp.metrics.ctr_avg) }}</td>
-            <td class="num">{{ fmt(camp.metrics.freq_avg, 1) }}</td>
             <td class="num">{{ fmtMoney(camp.metrics.cpa) }}</td>
+            <td class="num">{{ fmtMoney(camp.metrics.aov) }}</td>
+            <td class="num bold">{{ fmtMoney(camp.metrics.gasto) }}</td>
+            <td class="num">{{ fmt(camp.metrics.freq_avg, 1) }}</td>
+            <td></td>
           </tr>
 
           <ng-container *ngIf="camp.expanded">
             <ng-container *ngFor="let adset of camp.adsets">
-              <!-- Ad Set row -->
+              <!-- Ad Set -->
               <tr class="row-adset" (click)="toggleAdset(adset)">
                 <td class="col-name">
                   <span class="indent-1"></span>
                   <span class="expand-icon">{{ adset.expanded ? '&#9660;' : '&#9654;' }}</span>
-                  <span class="adset-icon">&#128451;</span>
                   <span class="row-name">{{ adset.name }}</span>
-                  <span class="row-count">{{ adset.metrics.adCount }} anuncios</span>
+                  <span class="row-count">{{ adset.metrics.adCount }} ads</span>
                 </td>
-                <td class="num">{{ adset.metrics.purchases }}</td>
+                <td class="num">{{ adset.metrics.compras }}</td>
                 <td class="num">{{ fmt(adset.metrics.roas) }}x</td>
-                <td class="num">{{ fmtMoney(adset.metrics.aov) }}</td>
-                <td class="num">{{ fmtMoney(adset.metrics.spend_7d) }}</td>
-                <td class="num">{{ fmtPct(adset.metrics.ctr_avg) }}</td>
-                <td class="num">{{ fmt(adset.metrics.freq_avg, 1) }}</td>
                 <td class="num">{{ fmtMoney(adset.metrics.cpa) }}</td>
+                <td class="num">{{ fmtMoney(adset.metrics.aov) }}</td>
+                <td class="num">{{ fmtMoney(adset.metrics.gasto) }}</td>
+                <td class="num">{{ fmt(adset.metrics.freq_avg, 1) }}</td>
+                <td></td>
               </tr>
 
               <ng-container *ngIf="adset.expanded">
-                <!-- Ad rows -->
+                <!-- Ads -->
                 <tr class="row-ad" *ngFor="let ad of adset.ads">
                   <td class="col-name">
                     <span class="indent-2"></span>
@@ -96,22 +88,22 @@
                       <div class="ad-thumb placeholder" *ngIf="!ad.thumbnail_url">&#9654;</div>
                       <div class="ad-info">
                         <span class="ad-link" (click)="goToAd(ad.ad_id); $event.stopPropagation()">{{ ad.ad_name }}</span>
-                        <span class="ad-status">
-                          <span class="badge" [ngClass]="statusClass(ad.effective_status)">{{ statusLabel(ad.effective_status) }}</span>
-                          <span class="confidence-icon" [title]="ad.purchases_default ?? ad.purchases_cum">{{ confidenceIcon(ad.purchases_default ?? ad.purchases_cum) }}</span>
+                        <span class="ad-meta">
+                          {{ ad.confiable ? '&#128737;' : '&#128300;' }}
+                          {{ ad.dias_vida }}d
                         </span>
                       </div>
                     </div>
                   </td>
-                  <td class="num">{{ ad.purchases_default ?? ad.purchases_7d ?? 0 }}</td>
-                  <td class="num" [style.color]="ad.roas_7d >= ad.roas_min_applied ? '#86efac' : ad.roas_7d > 0 ? '#fde047' : '#fca5a5'">
-                    {{ fmt(ad.roas_7d) }}x
+                  <td class="num">{{ ad.compras_default }}</td>
+                  <td class="num" [style.color]="ad.roas_default >= 5.5 ? '#86efac' : ad.roas_default >= 1.41 ? '#fde047' : '#fca5a5'">
+                    {{ fmt(ad.roas_default) }}x
                   </td>
-                  <td class="num">{{ fmtMoney(ad.aov_7d) }}</td>
-                  <td class="num">{{ fmtMoney(ad.spend_7d) }}</td>
-                  <td class="num">{{ fmtPct(ad.ctr_7d) }}</td>
-                  <td class="num" [style.color]="ad.freq_recent > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.freq_recent, 1) }}</td>
-                  <td class="num">{{ fmtMoney(ad.cpa_default ?? ad.cpa_7d) }}</td>
+                  <td class="num">{{ fmtMoney(ad.cpa_default) }}</td>
+                  <td class="num">{{ fmtMoney(ad.aov_default) }}</td>
+                  <td class="num">{{ fmtMoney(ad.gasto) }}</td>
+                  <td class="num" [style.color]="ad.freq_30d > 3.5 ? '#fde047' : 'inherit'">{{ fmt(ad.freq_30d, 1) }}</td>
+                  <td><span class="decision-tag" [ngClass]="decisionClass(ad.decision)">{{ ad.decision }}</span></td>
                 </tr>
               </ng-container>
             </ng-container>
