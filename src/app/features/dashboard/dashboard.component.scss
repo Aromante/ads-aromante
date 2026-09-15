@@ -124,3 +124,5 @@
   &:disabled { opacity: 0.6; }
 }
 .pk-dismiss { background: none; border: none; color: #6b7280; font-size: 12px; cursor: pointer; &:hover { color: #9ca3af; } }
+
+.loading-inline { color: #6b7280; font-size: 13px; padding: 8px 0; }

@@ -21,6 +21,8 @@
     <input type="text" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" placeholder="Buscar..." class="search-input" />
   </div>
 
+  <div *ngIf="loadingMore" class="loading-inline">Cargando anuncios pausados...</div>
+
   <!-- KPI strip -->
   <div class="kpi-strip">
     <div class="kpi-item"><span class="kpi-label">Gasto 7d</span><span class="kpi-val">{{ fmtMoney(totalSpend) }}</span></div>

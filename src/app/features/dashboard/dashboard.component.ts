@@ -8,7 +8,6 @@ import { PasskeyService } from '../../core/services/passkey.service';
 import { DashboardAd } from '../../core/models/meta.models';
 
 type StatusFilter = 'all' | 'active' | 'paused';
-type SortDir = 'asc' | 'desc';
 
 interface AggMetrics {
   spend_7d: number;
@@ -54,14 +53,16 @@ export class DashboardComponent implements OnInit {
   passkeyError = signal('');
 
   loading = true;
+  loadingMore = false;
   error = '';
 
-  private allAds: DashboardAd[] = [];
+  // Data stores by status
+  private activeAds: DashboardAd[] = [];
+  private pausedAds: DashboardAd[] = [];
+  private pausedLoaded = false;
 
   search = signal('');
   statusFilter = signal<StatusFilter>('active');
-  sortField = 'spend_7d';
-  sortDir: SortDir = 'desc';
 
   activeCount = 0;
   pausedCount = 0;
@@ -72,23 +73,43 @@ export class DashboardComponent implements OnInit {
   totalPurchases = 0;
   blendedRoas = 0;
   blendedCpa = 0;
-  totalExcess = 0;
 
   // Hierarchical data
   campaigns: CampaignGroup[] = [];
 
   async ngOnInit() {
     try {
-      let rows = this.cache.get<DashboardAd[]>('dashboard_mat');
-      if (!rows) {
-        rows = await this.supa.select<DashboardAd>('meta_dashboard_mat');
-        this.cache.set('dashboard_mat', rows);
+      // Load only ACTIVE ads first (~40 rows, fast)
+      let active = this.cache.get<DashboardAd[]>('dash_active');
+      if (!active) {
+        active = await this.supa.selectWithFilter<DashboardAd>(
+          'meta_dashboard_mat', '*',
+          q => q.eq('effective_status', 'ACTIVE')
+        );
+        this.cache.set('dash_active', active);
+      }
+      this.activeAds = active;
+      this.activeCount = active.length;
+
+      // Get paused count without loading all data
+      const counts = await this.supa.selectWithFilter<{ effective_status: string }>(
+        'meta_dashboard_mat', 'effective_status',
+        q => q.neq('effective_status', 'ACTIVE').limit(1)
+      );
+      // Use a count RPC or just estimate from the total
+      const totalCount = this.cache.get<number>('dash_total_count');
+      if (totalCount) {
+        this.pausedCount = totalCount - this.activeCount;
+      } else {
+        // Quick count query
+        const all = await this.supa.selectWithFilter<{ ad_id: string }>(
+          'meta_dashboard_mat', 'ad_id', q => q
+        );
+        this.pausedCount = all.length - this.activeCount;
+        this.cache.set('dash_total_count', all.length);
       }
 
-      this.allAds = rows;
-      this.activeCount = rows.filter(a => a.effective_status === 'ACTIVE').length;
-      this.pausedCount = rows.length - this.activeCount;
-      this.applyFilters();
+      this.buildView();
 
       if (window.PublicKeyCredential) {
         const has = await this.passkey.hasPasskey();
@@ -101,13 +122,48 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  applyFilters() {
-    let list = this.allAds;
+  async setStatusFilter(f: StatusFilter) {
+    this.statusFilter.set(f);
 
+    // Lazy load paused ads when needed
+    if ((f === 'paused' || f === 'all') && !this.pausedLoaded) {
+      this.loadingMore = true;
+      try {
+        let paused = this.cache.get<DashboardAd[]>('dash_paused');
+        if (!paused) {
+          paused = await this.supa.selectWithFilter<DashboardAd>(
+            'meta_dashboard_mat', '*',
+            q => q.neq('effective_status', 'ACTIVE')
+          );
+          this.cache.set('dash_paused', paused);
+        }
+        this.pausedAds = paused;
+        this.pausedCount = paused.length;
+        this.pausedLoaded = true;
+      } catch (e: any) {
+        this.error = e.message ?? 'Error loading paused ads';
+      } finally {
+        this.loadingMore = false;
+      }
+    }
+
+    this.buildView();
+  }
+
+  onSearchChange(value: string) {
+    this.search.set(value);
+    this.buildView();
+  }
+
+  private buildView() {
     const sf = this.statusFilter();
-    if (sf === 'active') list = list.filter(a => a.effective_status === 'ACTIVE');
-    else if (sf === 'paused') list = list.filter(a => a.effective_status !== 'ACTIVE');
+    let list: DashboardAd[];
 
+    if (sf === 'active') list = this.activeAds;
+    else if (sf === 'paused') list = this.pausedAds;
+    else list = [...this.activeAds, ...this.pausedAds];
+
+    // Search
     const q = this.search().toLowerCase();
     if (q) {
       list = list.filter(a =>
@@ -118,20 +174,13 @@ export class DashboardComponent implements OnInit {
       );
     }
 
-    // Sort ads
-    const dir = this.sortDir === 'asc' ? 1 : -1;
-    const field = this.sortField;
-    list = [...list].sort((a: any, b: any) => ((a[field] ?? 0) - (b[field] ?? 0)) * dir);
-
     // KPIs
     this.totalSpend = list.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
     this.totalValue = list.reduce((s, a) => s + (a.value_7d ?? 0), 0);
     this.totalPurchases = list.reduce((s, a) => s + (a.purchases_default ?? a.purchases_7d ?? 0), 0);
     this.blendedRoas = this.totalSpend > 0 ? this.totalValue / this.totalSpend : 0;
     this.blendedCpa = this.totalPurchases > 0 ? this.totalSpend / this.totalPurchases : 0;
-    this.totalExcess = list.reduce((s, a) => s + (a.spend_excess > 0 ? a.spend_excess : 0), 0);
 
-    // Build hierarchy
     this.campaigns = this.buildHierarchy(list);
   }
 
@@ -152,8 +201,9 @@ export class DashboardComponent implements OnInit {
 
     for (const [campName, adsetMap] of campMap) {
       const adsets: AdSetGroup[] = [];
-
       for (const [adsetName, adsetAds] of adsetMap) {
+        // Sort ads by spend desc within adset
+        adsetAds.sort((a, b) => (b.spend_7d ?? 0) - (a.spend_7d ?? 0));
         adsets.push({
           name: adsetName,
           metrics: this.aggregate(adsetAds),
@@ -161,8 +211,6 @@ export class DashboardComponent implements OnInit {
           expanded: false
         });
       }
-
-      // Sort adsets by spend desc
       adsets.sort((a, b) => b.metrics.spend_7d - a.metrics.spend_7d);
 
       const allAdsInCamp = adsets.flatMap(a => a.ads);
@@ -174,14 +222,13 @@ export class DashboardComponent implements OnInit {
       });
     }
 
-    // Sort campaigns by spend desc
     campaigns.sort((a, b) => b.metrics.spend_7d - a.metrics.spend_7d);
 
-    // Auto-expand if only 1 campaign or if searching
-    if (campaigns.length === 1 || this.search()) {
+    // Auto-expand if few items or searching
+    if (campaigns.length <= 3 || this.search()) {
       campaigns.forEach(c => {
         c.expanded = true;
-        if (c.adsets.length === 1 || this.search()) {
+        if (c.adsets.length <= 3 || this.search()) {
           c.adsets.forEach(a => a.expanded = true);
         }
       });
@@ -194,8 +241,8 @@ export class DashboardComponent implements OnInit {
     const spend = ads.reduce((s, a) => s + (a.spend_7d ?? 0), 0);
     const value = ads.reduce((s, a) => s + (a.value_7d ?? 0), 0);
     const purchases = ads.reduce((s, a) => s + (a.purchases_default ?? a.purchases_7d ?? 0), 0);
-    const withCtr = ads.filter(a => a.ctr_7d > 0);
-    const withFreq = ads.filter(a => a.freq_recent > 0);
+    const withCtr = ads.filter(a => (a.ctr_7d ?? 0) > 0);
+    const withFreq = ads.filter(a => (a.freq_recent ?? 0) > 0);
 
     return {
       spend_7d: spend,
@@ -213,18 +260,6 @@ export class DashboardComponent implements OnInit {
   toggleCampaign(c: CampaignGroup) { c.expanded = !c.expanded; }
   toggleAdset(a: AdSetGroup) { a.expanded = !a.expanded; }
 
-  sort(field: string) {
-    if (this.sortField === field) {
-      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortField = field;
-      this.sortDir = 'desc';
-    }
-    this.applyFilters();
-  }
-
-  onSearchChange(value: string) { this.search.set(value); this.applyFilters(); }
-  setStatusFilter(f: StatusFilter) { this.statusFilter.set(f); this.applyFilters(); }
   goToAd(adId: string) { this.router.navigate(['/ad', adId]); }
 
   statusLabel(s: string): string {
@@ -261,11 +296,6 @@ export class DashboardComponent implements OnInit {
   fmtPct(n: number | null | undefined): string {
     if (n == null) return '—';
     return n.toFixed(2) + '%';
-  }
-
-  sortIcon(field: string): string {
-    if (this.sortField !== field) return '';
-    return this.sortDir === 'asc' ? ' ▲' : ' ▼';
   }
 
   async registerPasskey() {
