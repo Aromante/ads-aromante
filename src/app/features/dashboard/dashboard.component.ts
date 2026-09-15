@@ -90,35 +90,27 @@ export class DashboardComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      let ads = this.cache.get<DashAd[]>('dash_v3');
+      let ads = this.cache.get<DashAd[]>('dash_v4');
       if (!ads) {
         const scorecards = await this.supa.select<any>('meta_ad_scorecard');
+        const adIds = scorecards.map((s: any) => s.ad_id);
+
         const dims = await this.supa.selectWithFilter<any>(
           'meta_ads_dim',
           'ad_id,adset_name,effective_status,thumbnail_url',
-          q => q.is('valid_to', null)
+          q => q.is('valid_to', null).in('ad_id', adIds)
         );
-
-        console.log('[dashboard] scorecards:', scorecards.length, 'dims:', dims.length);
-        if (dims.length > 0) console.log('[dashboard] dim sample:', dims[0]);
-        if (scorecards.length > 0) console.log('[dashboard] scorecard sample:', scorecards[0]);
 
         const dimMap = new Map(dims.map((d: any) => [d.ad_id, d]));
 
         ads = scorecards.map((s: any) => {
           const d = dimMap.get(s.ad_id);
-          if (!d) console.log('[dashboard] NO DIM for', s.ad_id, s.ad_name);
-          return { ...s, adset_name: d?.adset_name ?? 'Sin ad set', effective_status: d?.effective_status ?? 'UNKNOWN', thumbnail_url: d?.thumbnail_url ?? null } as DashAd;
+          return { ...s, adset_name: d?.adset_name ?? 'Sin ad set', effective_status: d?.effective_status ?? 'ACTIVE', thumbnail_url: d?.thumbnail_url ?? null } as DashAd;
         });
-        this.cache.set('dash_v3', ads);
+        this.cache.set('dash_v4', ads);
       }
 
       this.allAds.set(ads);
-
-      // Debug: log what statuses we got
-      const statuses = new Map<string, number>();
-      ads.forEach(a => statuses.set(a.effective_status, (statuses.get(a.effective_status) ?? 0) + 1));
-      console.log('[dashboard] statuses:', Object.fromEntries(statuses), 'total:', ads.length);
 
       this.activeCount.set(ads.filter(a => a.effective_status === 'ACTIVE').length);
       this.pausedCount.set(ads.length - this.activeCount());
